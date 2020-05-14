@@ -7,6 +7,7 @@ import 'package:adhkaar/utils/BottomNavBarBloc.dart';
 import 'package:feather_icons_flutter/feather_icons_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:keyboard_visibility/keyboard_visibility.dart';
 import 'package:navigation_dot_bar/navigation_dot_bar.dart';
 import 'package:provider/provider.dart';
 
@@ -59,10 +60,22 @@ class BaseScreen extends StatefulWidget {
 
 class BaseScreenState extends State<BaseScreen> {
   BottomNavBarBloc _bottomNavBarBloc;
-
+  bool isKeyboardVisible;
+  int count;
+  NavBarItem currentItem;
   @override
   void initState() {
     super.initState();
+    isKeyboardVisible = false;
+count=0;
+    NavBarItem currentItem = NavBarItem.HOME;
+    KeyboardVisibilityNotification().addNewListener(
+      onChange: (bool isVisible) {
+
+        count++;
+        setState(() => isKeyboardVisible = isVisible);
+      },
+    );
     _bottomNavBarBloc = BottomNavBarBloc();
   }
 
@@ -85,24 +98,47 @@ class BaseScreenState extends State<BaseScreen> {
               initialData: _bottomNavBarBloc.defaultitem,
               builder:
                   (BuildContext context, AsyncSnapshot<NavBarItem> snapshot) {
+
                 switch (snapshot.data) {
+
+
                   case NavBarItem.HOME:
+                    _bottomNavBarBloc.defaultitem=NavBarItem.HOME;
                     return BrowseScreen();
                   case NavBarItem.SEARCH:
+                    _bottomNavBarBloc.defaultitem=NavBarItem.SETTINGS;
                     return SearchScreen();
                   case NavBarItem.SETTINGS:
+                    _bottomNavBarBloc.defaultitem=NavBarItem.SETTINGS;
                     return BrowseScreen();
                   default:
                     return BrowseScreen();
                 }
               }),
-          Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                height: 75,
-                color: Colors.transparent,
-                padding: EdgeInsets.only(bottom: 15, right: 10, left: 10),
-                child:
+          StreamBuilder(
+              stream: _bottomNavBarBloc.navBarControler.stream,
+              initialData: _bottomNavBarBloc.defaultitem,
+
+              builder: (BuildContext context,
+                  AsyncSnapshot<NavBarItem> snapshot) {
+//                if(count!=0) {
+//                  if (currentItem == NavBarItem.HOME)
+//                    _bottomNavBarBloc.pickItem(0);
+//                  else if (currentItem == NavBarItem.SEARCH)
+//                    _bottomNavBarBloc.pickItem(1);
+//                  else if (currentItem == NavBarItem.SETTINGS)
+//                    _bottomNavBarBloc.pickItem(2);
+//
+//                  count=0;
+//                }
+              return
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    height: !isKeyboardVisible?75.0:0,
+                    color: Colors.transparent,
+                    padding: EdgeInsets.only(bottom: 15, right: 10, left: 10),
+                    child:
 //                  AnimatedBottomNavBar(
 //                      currentIndex: _currentPage,
 //                      onChange: (index) {
@@ -110,35 +146,59 @@ class BaseScreenState extends State<BaseScreen> {
 //                          _currentPage = index;
 //                        });
 //                      }),
-                    StreamBuilder(
-                  stream: _bottomNavBarBloc.navBarControler.stream,
-                  initialData: _bottomNavBarBloc.defaultitem,
-                  builder: (BuildContext context,
-                      AsyncSnapshot<NavBarItem> snapshot) {
-                    return BottomNavigationDotBar(
-                        // Usar -> "BottomNavigationDotBar"
-                        items: <BottomNavigationDotBarItem>[
-                          BottomNavigationDotBarItem(
-                              icon: FeatherIcons.grid,
-                              onTap: () {
-                                _bottomNavBarBloc.pickItem(0);
-                              }),
-                          BottomNavigationDotBarItem(
-                              icon: FeatherIcons.search,
-                              onTap: () {
-                                _bottomNavBarBloc.pickItem(1);
-                              }),
-                          BottomNavigationDotBarItem(
-                              icon: FeatherIcons.user,
-                              onTap: () {
-                                _bottomNavBarBloc.pickItem(2);
-                              }),
-                        ]);
-                  },
-                ),
-              )),
+
+                    bottomsheet(),
+
+                  ),
+
+                );
+
+
+            }
+          ),
         ],
       ),
     ));
+  }
+
+  Widget bottomsheet() {
+    return BottomNavigationDotBar(
+//       Usar -> "BottomNavigationDotBar"
+
+        items: <BottomNavigationDotBarItem>[
+          BottomNavigationDotBarItem(
+              icon: FeatherIcons.grid,
+              onTap: () {
+                _bottomNavBarBloc.pickItem(0);
+                currentItem = NavBarItem.HOME;
+                _bottomNavBarBloc.defaultitem=NavBarItem.HOME;
+                setState(() {
+
+                });
+              }),
+          BottomNavigationDotBarItem(
+              icon: FeatherIcons.search,
+              onTap: () {
+                _bottomNavBarBloc.pickItem(1);
+                currentItem = NavBarItem.SEARCH;
+                _bottomNavBarBloc.defaultitem=NavBarItem.SEARCH;
+                setState(() {
+
+                });
+              }),
+          BottomNavigationDotBarItem(
+              icon: FeatherIcons.user,
+              onTap: () {
+                _bottomNavBarBloc.pickItem(2);
+                currentItem = NavBarItem.SETTINGS;
+                _bottomNavBarBloc.defaultitem=NavBarItem.SETTINGS;
+
+                setState(() {
+
+                });
+              }),
+        ]
+
+    );
   }
 }

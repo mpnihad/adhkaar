@@ -60,8 +60,8 @@ print("SQL QUERY:   select $columnDuaHeadingRelatedId as id,$columnDuaHeadingNam
 
       var dbClient = await db;
       List<DuaHeading> duaHeadings = List();
-      List<Map> maps = await dbClient.rawQuery("select $columnDuaHeadingRelatedId,$columnDuaHeadingName from $tableDuaHeading  WHERE $columnDuaName LIKE '%$query' OR $columnDuaTr LIKE '%$query' OR $columnDuaTrans LIKE '%$query' GROUP BY $columnDuaHeadingRelatedId");
-      print("SQL QUERY:   select $columnDuaHeadingRelatedId,$columnDuaHeadingName from $tableDuaHeading  WHERE $columnDuaName LIKE '%$query' OR $columnDuaTr LIKE '%$query' OR $columnDuaTrans LIKE '%$query' GROUP BY $columnDuaHeadingRelatedId");
+      List<Map> maps = await dbClient.rawQuery("select $columnDuaHeadingRelatedId,$columnDuaHeadingName from $tableDuaHeading  WHERE $columnDuaName LIKE '%$query%' OR $columnDuaTr LIKE '%$query%' OR $columnDuaTrans LIKE '%$query%' GROUP BY $columnDuaHeadingRelatedId");
+      print("SQL QUERY:   select $columnDuaHeadingRelatedId,$columnDuaHeadingName from $tableDuaHeading  WHERE $columnDuaName LIKE '%$query%' OR $columnDuaTr LIKE '%$query%' OR $columnDuaTrans LIKE '%$query%' GROUP BY $columnDuaHeadingRelatedId");
       if (maps.length > 0) {
         maps.forEach((f) {
           duaHeadings.add(DuaHeading.fromMap(f));

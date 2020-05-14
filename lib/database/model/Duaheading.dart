@@ -11,7 +11,7 @@ class DuaHeading {
   Color pallet;
 
   DuaHeading.forSearch(relatedId, String name, Color pallet){
-    this.id=id;
+    this.id=relatedId;
     this.name=name;
     this.pallet=pallet;
   }

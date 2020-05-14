@@ -471,7 +471,9 @@ class _ListArticlesState extends State<ListArticles>
                                   .value),
                       0.0,
                       0.0),
-              child: GestureDetector(
+              child:
+
+              GestureDetector(
                 onTap: () {
                   setState(() {
 //                    Timer(Duration(milliseconds: 300), () {
@@ -500,13 +502,19 @@ class _ListArticlesState extends State<ListArticles>
 //                              list: listcardmodel[index],
 //                              prevcolor: widget.prevColor)));
                 },
-                child: ExpandableCardContainer(
-                  expandedChild: createCollapsedColumn(
-                      context, index, pallete, subSection),
-                  collapsedChild:
-                      createExpandedColumn(context, index, pallete, subSection),
-                  isExpanded: isExpanded[index],
-                ),
+                child:
+                AnimatedContainer(
+                  curve: Curves.bounceOut,
+                  child:   ExpandableCardContainer(
+                    expandedChild: createCollapsedColumn(
+                        context, index, pallete, subSection),
+                    collapsedChild:
+                    createExpandedColumn(context, index, pallete, subSection),
+                    isExpanded: isExpanded[index],
+                  ),
+                  duration: Duration(milliseconds: 200),
+                )
+
               ),
             ),
           );

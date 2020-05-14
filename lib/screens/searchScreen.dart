@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'dart:ui';
 
 import 'package:adhkaar/database/helper/Helper.dart';
@@ -7,12 +8,13 @@ import 'package:adhkaar/database/model/Section.dart';
 import 'package:adhkaar/database/modelhelper/DuaHeadingHelper.dart';
 import 'package:adhkaar/utils/colors.dart';
 import 'package:adhkaar/widget/list_card.dart';
+import 'package:feather_icons_flutter/feather_icons_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_neumorphic/flutter_neumorphic.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
-
+import 'dart:math'as math;
 import 'Details.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -20,8 +22,6 @@ class SearchScreen extends StatefulWidget {
 
   @override
   _SearchScreenState createState() => _SearchScreenState();
-
-
 }
 
 class _SearchScreenState extends State<SearchScreen>
@@ -29,6 +29,7 @@ class _SearchScreenState extends State<SearchScreen>
   var textController = TextEditingController();
   Timer _timer;
   FocusNode _focus;
+
   double get widthButtonCancel => textController.text?.isEmpty ?? true ? 0 : 50;
   ScrollController _scrollController;
   ScrollController _scrollController1;
@@ -42,7 +43,7 @@ class _SearchScreenState extends State<SearchScreen>
   DuaHeadingHelper helper;
   DuaHeadingHelper duaHelper;
   bool isVisibleSearch = false;
-  String query="";
+  String query = "";
   bool lastStatus = true;
 
   double expandedsize;
@@ -60,6 +61,7 @@ class _SearchScreenState extends State<SearchScreen>
       isVisibleSearch = _focus.hasFocus;
     });
   }
+
   _scrollListener1() {
 //    if (isShrink != lastStatus) {
 //      setState(() {
@@ -78,7 +80,6 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   void initState() {
-
     var dbHelper = Helper();
     helper = DuaHeadingHelper(dbHelper.db);
     duaHelper = DuaHeadingHelper(dbHelper.db);
@@ -91,14 +92,14 @@ class _SearchScreenState extends State<SearchScreen>
     }
     _timer = Timer(
       Duration(milliseconds: 500),
-          () {
-            setState(() {
-              query = textController.text;
-            });
-            Provider.of<DuaHeadingHelper>(
-              context,
-              listen: false,
-            ).searchProducts(query: textController.text);
+      () {
+        setState(() {
+          query = textController.text;
+        });
+        Provider.of<DuaHeadingHelper>(
+          context,
+          listen: false,
+        ).searchProducts(query: textController.text);
       },
     );
 
@@ -212,310 +213,370 @@ class _SearchScreenState extends State<SearchScreen>
                       context: context,
                       child: Material(
                         color: Colors.transparent,
-                        child: NestedScrollView(
-                            physics: AlwaysScrollableScrollPhysics(),
-                            controller: _scrollController,
-                            headerSliverBuilder: (BuildContext context,
-                                bool innerBoxIsScrolled) {
-                              return <Widget>[
-                                ///First sliver is the App Bar
-                                AnimatedBuilder(
-                                    animation: _ColorAnimationController,
-                                    builder: (context, snapshot) {
-                                      return SliverAppBar(
-                                        ///Properties of app bar
-                                        ///
-
-//                                    backgroundColor: isShrink
-//                                        ? Color(widget.prevColor)
-//                                        : _colorTween.value,
-                                        backgroundColor: whitebg,
-                                        floating: false,
-                                        snap: false,
-                                        pinned: true,
-                                        leading: IconButton(
-                                          icon: Icon(Icons.arrow_back,
-                                              color: Colors.black),
-                                          onPressed: () {
-                                            Navigator.of(context).pop();
+                        child:  Column(
+                          children: <Widget>[
+                            Stack(
+                              children: <Widget>[
+                                Positioned(
+                                  right: 5,
+                                  top: 10,
+                                  child: Container(
+                                    alignment: Alignment.centerRight,
+                                    padding: EdgeInsets.only(right: 10),
+                                    child: Stack(
+                                      overflow: Overflow.visible,
+                                      children: <Widget>[
+                                        GestureDetector(
+                                          onTap: () {
+//                        Navigator.push(
+//                            context,
+//                            MaterialPageRoute(
+//                                builder: (context) => SettingsScreen()));
                                           },
+                                          child: CircleAvatar(
+                                            backgroundColor: Colors.black,
+                                            backgroundImage:
+                                            AssetImage("assets/user.png"),
+                                            maxRadius: 16,
+                                          ),
                                         ),
-                                        expandedHeight: expandedsize,
+                                        Positioned(
+                                          left: -5,
+                                          bottom: -5,
+                                          child: GestureDetector(
+                                            onTap: () {},
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                  borderRadius:
+                                                  BorderRadius.circular(100),
+                                                  border: Border.all(
+                                                      width: 1, color: Colors.white)),
+                                              child: CircleAvatar(
+                                                backgroundColor: darkGreens,
+                                                child: Icon(
+                                                  Icons.settings,
+                                                  size: 9,
+                                                ),
+                                                maxRadius: 9,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 20,
+                                  ),
+                                  child: Container(
+                                    alignment: Alignment.bottomCenter,
+                                    child: Container(
+                                      padding: EdgeInsets.only(bottom: 20),
+                                      alignment: Alignment.bottomCenter,
+                                      child: Image.asset(
+                                        "assets/images/icon.png",
+                                        width: 50,
+                                        height: 50,
+                                      ),
+                                    ),
+                                  ),
+                                ),
 
-                                        ///Properties of the App Bar when it is expanded
-                                        flexibleSpace: Stack(
-                                          children: <Widget>[
-                                            FlexibleSpaceBar(
-                                              centerTitle: true,
-                                              titlePadding:
-                                                  const EdgeInsets.only(
-                                                      right: 60.0, left: 60.0),
-                                              collapseMode: CollapseMode.pin,
-                                              title: LayoutBuilder(builder:
-                                                  (BuildContext context,
-                                                      BoxConstraints
-                                                          constraints) {
-                                                double percent =
-                                                    ((constraints.maxHeight -
-                                                            kToolbarHeight) *
-                                                        100 /
-                                                        (expandedsize));
-                                                double per = percent == 100
-                                                    ? 1
-                                                    : (100 - percent);
-                                                double padding = 100 -
-                                                    (100 -
-                                                        ((100 * percent) /
-                                                            100));
-                                                double padding2 = 10 -
-                                                    (10 -
-                                                        ((10 * percent) / 100));
-                                                return Container(
-                                                  padding: EdgeInsets.only(
-                                                      top: padding),
-                                                  alignment:
-                                                      Alignment.bottomCenter,
-                                                  child: SizedBox(
-                                                    height: (expandedsize / 2),
-                                                    child: Column(
-                                                      children: <Widget>[
-                                                        Text(
-                                                          "Adkhar",
-                                                          style: TextStyle(
-                                                              color:
-                                                                  Colors.black,
-                                                              fontSize: 20.0,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontFamily:
-                                                                  'SelametLebaran'),
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                        ),
 
-                                                      ],
+//                                FlexibleSpaceBar(
+//                                  centerTitle: true,
+//                                  titlePadding: const EdgeInsets.only(
+//                                      right: 60.0, left: 60.0),
+//                                  collapseMode: CollapseMode.parallax,
+//                                  title:
+//                                ),
+                              ],
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom:20.0),
+                              child: Stack(
+                                children: <Widget>[
+                                  Container(
+                                    alignment: Alignment.bottomCenter,
+                                    child: SizedBox(
+                                      height: 40.0,
+                                      child: Align(
+                                          alignment: Alignment.bottomLeft,
+                                          child: Stack(
+                                            children: <Widget>[
+                                              Center(
+                                                child: Text(
+                                                  "Adkhar",
+                                                  style: TextStyle(
+                                                      color: Colors.black,
+                                                      fontSize: 35.0,
+                                                      fontWeight:
+                                                      FontWeight.w600,
+                                                      fontFamily:
+                                                      'SelametLebaran'),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            ],
+                                          )),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: CustomScrollView(
+
+                                physics: AlwaysScrollableScrollPhysics(),
+                                slivers: <Widget>[
+//                                SliverAppBar(
+//                                  backgroundColor: whitebg,
+//                                  floating: true,
+//                                  snap: true,
+//                                  pinned: true,
+//                                  flexibleSpace:
+//                                ),
+
+                                  SliverPersistentHeader(
+                                    pinned: true,
+                                    delegate: _SliverAppBarDelegate(
+                                      minHeight:isShrink?110.0:70,
+
+                                      maxHeight: isShrink?110.0:70.0,
+
+                                      child: Container(
+                                        color:whitebg,
+                                        padding: const EdgeInsets.only(top:8.0,bottom: 16.0,right: 8.0,left: 8.0),
+                                        child: Container(
+
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(5.0),
+                                          ),
+
+                                          alignment: Alignment.bottomCenter,
+
+                                          child: SizedBox(
+                                            height: 50,
+                                            child: Row(
+                                              crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                              children: <Widget>[
+
+
+
+                                                SizedBox(width: 10),
+                                                Expanded(
+                                                  child: TypeAheadFormField(
+                                                    textFieldConfiguration:
+                                                    TextFieldConfiguration(
+                                                      decoration: InputDecoration(
+                                                        fillColor:Colors.black,
+                                                        hintText: "Search in Malayalam",
+                                                        enabledBorder: InputBorder.none,
+                                                        border: InputBorder.none,
+                                                      ),
+                                                      controller: textController,
+                                                      focusNode: _focus,
                                                     ),
+                                                    suggestionsCallback:
+                                                        (String pattern) {
+                                                      return List();
+                                                    },
+                                                    errorBuilder: (context, suggestion) {
+                                                      return SizedBox();
+                                                    },
+                                                    noItemsFoundBuilder: (context) {
+                                                      return SizedBox();
+                                                    },
+                                                    itemBuilder: (context, suggestion) {
+                                                      return ListTile(
+                                                        title: Text(suggestion),
+                                                      );
+                                                    },
+                                                    transitionBuilder: _transitionBuilder,
+                                                    onSuggestionSelected: (suggestion) {
+                                                      FocusScope.of(context).requestFocus(
+                                                          FocusNode()); //dismiss keyboard
+
+                                                      if (suggestion !=
+                                                          textController.text) {
+                                                        setState(() {
+                                                          textController.text =
+                                                              suggestion;
+                                                        });
+                                                        setState(() {
+                                                          query = textController.text;
+                                                        });
+                                                        Provider.of<DuaHeadingHelper>(
+                                                          context,
+                                                          listen: false,
+                                                        ).searchProducts(
+                                                            query: textController.text);
+                                                      }
+                                                    },
                                                   ),
-                                                );
-                                              }),
-                                            ),
-                                            Positioned(
-                                              right: 10,
-                                              top: 10,
-                                              child: Container(
-                                                alignment:
-                                                    Alignment.centerRight,
-                                                padding:
-                                                    EdgeInsets.only(right: 10),
-                                                child: Stack(
-                                                  overflow: Overflow.visible,
-                                                  children: <Widget>[
-                                                    GestureDetector(
-                                                      onTap: () {
-//                        Navigator.push(
-//                            context,
-//                            MaterialPageRoute(
-//                                builder: (context) => SettingsScreen()));
-                                                      },
-                                                      child: CircleAvatar(
-                                                        backgroundColor:
-                                                            Colors.black,
-                                                        backgroundImage:
-                                                            AssetImage(
-                                                                "assets/user.png"),
-                                                        maxRadius: 16,
-                                                      ),
-                                                    ),
-                                                    Positioned(
-                                                      left: -5,
-                                                      bottom: -5,
-                                                      child: GestureDetector(
-                                                        onTap: () {
-//                        Navigator.push(
-//                            context,
-//                            MaterialPageRoute(
-//                                builder: (context) => SettingsScreen()));
-                                                        },
-                                                        child: Container(
-                                                          decoration: BoxDecoration(
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          100),
-                                                              border: Border.all(
-                                                                  width: 1,
-                                                                  color: Colors
-                                                                      .white)),
-                                                          child: CircleAvatar(
-                                                            backgroundColor:
-                                                                darkGreens,
-                                                            child: Icon(
-                                                              Icons.settings,
-                                                              size: 9,
-                                                            ),
-                                                            maxRadius: 9,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
                                                 ),
-                                              ),
-                                            ),
 
-                                          ],
-                                        ),
-                                      );
-                                    }),
-                              ];
-                            },
-                            body: Container(
-                                decoration: new BoxDecoration(),
-                                child: NestedScrollView(
-                                    physics: AlwaysScrollableScrollPhysics(),
-                                    controller: _scrollController,
-                                    headerSliverBuilder: (BuildContext context,
-                                        bool innerBoxIsScrolled) {
-                                    return SliverAppBar(
-                                      flexibleSpace:  Row(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: <Widget>[
-                                          Image.asset(
-                                            "assets/icons/tabs/icon-search.png",
-                                            width: 20,
-                                            color: Theme.of(context).accentColor,
-                                          ),
-                                          SizedBox(width: 10),
-                                          Expanded(
-                                            child: TypeAheadFormField(
-                                              textFieldConfiguration: TextFieldConfiguration(
-                                                decoration: InputDecoration(
-                                                  fillColor: Theme.of(context).accentColor,
-                                                  hintText: "Search in Malayalam",
-                                                  enabledBorder: InputBorder.none,
-                                                  border: InputBorder.none,
-                                                ),
-                                                controller: textController,
-                                                focusNode:  _focus,
-                                              ),
-                                              suggestionsCallback: (String pattern) {
-                                                return List();
-                                              },
-                                              errorBuilder: (context, suggestion) {
-                                                return SizedBox();
-                                              },
-                                              noItemsFoundBuilder: (context) {
-                                                return SizedBox();
-                                              },
-                                              itemBuilder: (context, suggestion) {
-                                                return ListTile(
-                                                  title: Text(suggestion),
-                                                );
-                                              },
-                                              transitionBuilder: _transitionBuilder,
-                                              onSuggestionSelected: (suggestion) {
-                                                FocusScope.of(context)
-                                                    .requestFocus(FocusNode()); //dismiss keyboard
-
-                                                if (suggestion != textController.text) {
-                                                  setState(() {
-                                                    textController.text = suggestion;
-                                                  });
-                                                  setState(() {
-                                                    query = textController.text;
-                                                  });
-                                                  Provider.of<DuaHeadingHelper>(
-                                                    context,
-                                                    listen: false,
-                                                  ).searchProducts(query: textController.text);
-
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                          AnimatedContainer(
-                                            width: widthButtonCancel,
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                setState(() {
-                                                  textController.text = "";
-                                                  isVisibleSearch = false;
-                                                });
-                                                textController.text = "";
-                                                FocusScope.of(context).requestFocus(FocusNode());
-                                              },
-                                              child: Center(
-                                                  child:
-                                                  widthButtonCancel==0?Container():Icon(Icons.cancel)
+                                                AnimatedContainer(
+                                                  width: widthButtonCancel,
+                                                  child: GestureDetector(
+                                                    onTap: () {
+                                                      setState(() {
+                                                        textController.text = "";
+                                                        isVisibleSearch = false;
+                                                      });
+                                                      textController.text = "";
+                                                      FocusScope.of(context)
+                                                          .requestFocus(FocusNode());
+                                                    },
+                                                    child: Center(
+                                                        child: widthButtonCancel == 0
+                                                            ? Container()
+                                                            : Icon(Icons.cancel)
 
 //                      Text(
 //                        S.of(context).cancelx,
 //                        overflow: TextOverflow.ellipsis,
 //                      ),
 
-                                              ),
+                                                    ),
+                                                  ),
+                                                  duration: Duration(milliseconds: 200),
+                                                ),
+                                                AnimatedContainer(
+                                                  width: widthButtonCancel==0?50:0,
+                                                  child: GestureDetector(
+                                                    onTap: () {
+                                                      setState(() {
+                                                        textController.text = "";
+                                                        isVisibleSearch = false;
+                                                      });
+                                                      textController.text = "";
+                                                      FocusScope.of(context)
+                                                          .requestFocus(FocusNode());
+                                                    },
+                                                    child: IconButton(
+                                                      iconSize: 20,
+                                                      icon: Icon(FeatherIcons.search,
+                                                          color: Colors.black),
+                                                      onPressed: () {
+
+                                                      },
+                                                    ),
+                                                  ),
+                                                  duration: Duration(milliseconds: 200),
+                                                )
+                                              ],
                                             ),
-                                            duration: Duration(milliseconds: 200),
-                                          )
-                                        ],
+                                          ),
+                                        ),
                                       ),
-                                      children: <Widget>[
-
-
-                                      ],
-                                    );
-                                  },body:    Expanded(
-                                  child: FutureBuilder<List<DuaHeading>>(
-                                      future: getSearchData(name:query),
+                                    ),
+                                  ),
+//                                SliverFixedExtentList(
+//                                    itemExtent: 150.0,
+//                                    delegate: SliverChildListDelegate([
+//
+//                                    ])),
+                                  FutureBuilder<List<DuaHeading>>(
+                                      future: getSearchData(name: query),
                                       builder: (context, snapshot) {
                                         if (snapshot.hasData) {
-                                          return CustomScrollView(
-                                              physics:
-                                              AlwaysScrollableScrollPhysics(),
-                                              slivers: <Widget>[
-                                                SliverList(
-                                                  delegate:
-                                                  SliverChildBuilderDelegate(
-                                                          (BuildContext
-                                                      context,
-                                                          int index) {
-                                                        return AnimatedBuilder(
-                                                            animation: ColorTween(
-                                                                begin: Colors
-                                                                    .white,
-                                                                end: Color(
-                                                                    0xff1b305d))
-                                                                .animate(
-                                                                _ColorAnimationController1),
-                                                            builder: (BuildContext
-                                                            context,
-                                                                Widget child) {
-                                                              return listItem(
-                                                                  index,
-                                                                  Color(
-                                                                      0xff1b305d),
-                                                                  snapshot.data);
-                                                            });
-                                                      },
-                                                      childCount: snapshot
-                                                          .data.length),
-                                                ),
-                                              ]);
+                                          return SliverList(
+                                            delegate:
+                                            SliverChildBuilderDelegate(
+                                                    (BuildContext context,
+                                                    int index) {
+                                                  return AnimatedBuilder(
+                                                      animation: ColorTween(
+                                                          begin: Colors.white,
+                                                          end:
+                                                          Color(0xff1b305d))
+                                                          .animate(
+                                                          _ColorAnimationController1),
+                                                      builder:
+                                                          (BuildContext context,
+                                                          Widget child) {
+                                                        return listItem(
+                                                            index,
+                                                            Color(0xff1b305d),
+                                                            snapshot.data);
+                                                      });
+                                                },
+                                                childCount:
+                                                snapshot.data.length),
+                                          );
                                         } else {
-                                          return Container(
-                                            alignment: Alignment.center,
-                                            child: SizedBox(
-                                              height: 30,
-                                              width: 30,
-                                              child:
-                                              CircularProgressIndicator(),
+                                          return SliverToBoxAdapter(
+                                            child: Container(
+                                              alignment: Alignment.center,
+                                              child: SizedBox(
+                                                height: 30,
+                                                width: 30,
+                                                child:
+                                                CircularProgressIndicator(),
+                                              ),
                                             ),
                                           );
                                         }
                                       }),
-                                ),
-                                ))),
+                                  SliverToBoxAdapter(
+                                      child: Container(
+                                        height: 80,
+                                      ))
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+
+//                        NestedScrollView(
+//                            physics: AlwaysScrollableScrollPhysics(),
+//                            controller: _scrollController,
+//                            headerSliverBuilder: (BuildContext context,
+//                                bool innerBoxIsScrolled) {
+//                              return <Widget>[
+//                                ///First sliver is the App Bar
+//                                AnimatedBuilder(
+//                                    animation: _ColorAnimationController,
+//                                    builder: (context, snapshot) {
+//                                      return  Container();
+////                                        SliverAppBar(
+////                                        centerTitle: false,
+//////                    title:   Container(
+//////
+//////                    alignment: Alignment.centerLeft,
+//////                    child: Image.asset(
+//////                    "assets/images/icon.png",
+//////                    width: 50,
+//////                    height: 50,
+//////                    ),
+//////                    ),
+////
+////                                        ///Properties of app bar
+//////                  backgroundColor: isShrink
+//////                      ? Color(widget.prevColor)
+//////                      : Colors.transparent,
+////                                        floating: true,
+////                                        pinned: true,
+////                                        backgroundColor: whitebg,
+////                                        expandedHeight: 180,
+////
+////                                        actions: <Widget>[
+////
+////                                        ],
+////
+////                                        ///Properties of the App Bar when it is expanded
+////
+////                                      );
+//                                    }),
+//                              ];
+//                            },
+//
+//                            body:),
                       ),
                     ),
                   ),
@@ -529,6 +590,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget listItem(int index, Color pallete, List<DuaHeading> data) {
     DuaHeading subDuaHeading = data[index];
+    subDuaHeading.pallet=pallete;
     animationController.forward();
     return AnimatedBuilder(
         animation: animationController,
@@ -823,6 +885,7 @@ class _SearchScreenState extends State<SearchScreen>
       ),
     );
   }
+
 //
 //  Future<List<DuaHeading>> getSearchData(
 //      DuaHeadingHelper dbHelper, String query) async {
@@ -837,9 +900,10 @@ class _SearchScreenState extends State<SearchScreen>
 //    return gDuaHeading;
 //  }
 
-  Future<List<DuaHeading>> getSearchData( {name}) async {
-    List<DuaHeading> dua=await Provider.of<DuaHeadingHelper>(context, listen: true)
-        .searchProducts(
+  Future<List<DuaHeading>> getSearchData({name}) async {
+    List<DuaHeading> dua =
+        await Provider.of<DuaHeadingHelper>(context, listen: true)
+            .searchProducts(
       query: name,
     );
     return dua;
@@ -852,7 +916,7 @@ class _SearchScreenState extends State<SearchScreen>
     }
     _timer = Timer(
       Duration(milliseconds: 500),
-          () {
+      () {
         setState(() {
           query = textController.text;
         });
@@ -863,5 +927,39 @@ class _SearchScreenState extends State<SearchScreen>
       },
     );
     return suggestionsBox;
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate({
+    @required this.minHeight,
+    @required this.maxHeight,
+    @required this.child,
+  });
+
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => minHeight;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return new SizedBox.expand(
+
+        child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return true;
+//    return maxHeight != oldDelegate.maxHeight ||
+//        minHeight != oldDelegate.minHeight ||
+//        child != oldDelegate.child;
   }
 }
