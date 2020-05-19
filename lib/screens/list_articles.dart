@@ -6,7 +6,6 @@ import 'package:adhkaar/database/model/Duaheading.dart';
 import 'package:adhkaar/database/model/Section.dart';
 import 'package:adhkaar/database/modelhelper/DuaHeadingHelper.dart';
 import 'package:adhkaar/database/modelhelper/SectionHelper.dart';
-import 'package:adhkaar/model/ListCardModel.dart';
 import 'package:adhkaar/utils/colors.dart';
 import 'package:adhkaar/utils/expandable.dart';
 import 'package:adhkaar/widget/list_card.dart';
@@ -48,6 +47,8 @@ class _ListArticlesState extends State<ListArticles>
 
   double expandedsize;
 
+  int index_dropdown;
+
   _scrollListener() {
     if (isShrink != lastStatus) {
       setState(() {
@@ -78,6 +79,7 @@ class _ListArticlesState extends State<ListArticles>
     helper = SectionHelper(dbHelper.db);
     duaHelper = DuaHeadingHelper(dbHelper.db);
 
+    index_dropdown = -1;
     pallets = [];
     _colorTween1 = [];
 
@@ -117,6 +119,11 @@ class _ListArticlesState extends State<ListArticles>
   @override
   void dispose() {
     animationController.dispose();
+    for (AnimationController animationController
+        in dropdownAnimationControler) {
+      animationController.dispose();
+    }
+
     _scrollController.dispose();
     _scrollController.removeListener(_scrollListener);
     _scrollController1.removeListener(_scrollListener1);
@@ -124,6 +131,7 @@ class _ListArticlesState extends State<ListArticles>
   }
 
   AnimationController animationController, _ColorAnimationController;
+  List<AnimationController> dropdownAnimationControler = [];
   AnimationController _ColorAnimationController1;
 
   Animation _colorTween;
@@ -135,8 +143,35 @@ class _ListArticlesState extends State<ListArticles>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print("onupdate called : index_dropdown=$index_dropdown");
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // Handle this case
+        animationController.forward();
+        if (index_dropdown != -1) {
+          dropdownAnimationControler[index_dropdown].forward();
+        }
+        break;
+      case AppLifecycleState.inactive:
+        // Handle this case
+        break;
+      case AppLifecycleState.paused:
+        // Handle this case
+        break;
+      case AppLifecycleState.detached:
+        // Handle this case
+        break;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    print("onbuild called : index_dropdown=$index_dropdown");
     animationController.forward();
+    if (index_dropdown != -1) {
+      dropdownAnimationControler[index_dropdown].forward();
+    }
     return WillPopScope(
       onWillPop: _onBackPressed,
       child: Scaffold(
@@ -471,29 +506,36 @@ class _ListArticlesState extends State<ListArticles>
                                   .value),
                       0.0,
                       0.0),
-              child:
-
-              GestureDetector(
-                onTap: () {
-                  setState(() {
+              child: GestureDetector(
+                  onTap: () {
+                    setState(() {
 //                    Timer(Duration(milliseconds: 300), () {
 //                      _scrollController.animateTo(((index + 1) * 125.0),
 //                          duration: Duration(seconds: 1), curve: Curves.ease);
 //                    });
 
-                    duaHeadingId = subSection.id;
-                    duaHeadinglist =
-                        getDuaHeading(duaHelper, subSection.id, pallete);
-                    int i = 0;
-                    for (bool status in isExpanded) {
-                      if (i != index) {
-                        isExpanded[i] = false;
+                      duaHeadingId = subSection.id;
+                      duaHeadinglist =
+                          getDuaHeading(duaHelper, subSection.id, pallete);
+                      int i = 0;
+                      for (bool status in isExpanded) {
+                        if (i != index) {
+                          isExpanded[i] = false;
+                          if (dropdownAnimationControler.length >= i + 1) {
+                            dropdownAnimationControler[i].reverse();
+                          }
+                        }
+                        i++;
                       }
-                      i++;
-                    }
-                    isExpanded[index] = !isExpanded[index];
-                    print(((index + 1) * 125.0));
-                  });
+
+                      isExpanded[index] = !isExpanded[index];
+                      if (isExpanded[index]) {
+                        dropdownAnimationControler[index].forward();
+                      } else {
+                        dropdownAnimationControler[index].reverse();
+                      }
+                      print(((index + 1) * 125.0));
+                    });
 
 //                  Navigator.push(
 //                      context,
@@ -501,21 +543,14 @@ class _ListArticlesState extends State<ListArticles>
 //                          builder: (context) => SubDivitionPage(
 //                              list: listcardmodel[index],
 //                              prevcolor: widget.prevColor)));
-                },
-                child:
-                AnimatedContainer(
-                  curve: Curves.bounceOut,
-                  child:   ExpandableCardContainer(
+                  },
+                  child: ExpandableCardContainer(
                     expandedChild: createCollapsedColumn(
                         context, index, pallete, subSection),
-                    collapsedChild:
-                    createExpandedColumn(context, index, pallete, subSection),
+                    collapsedChild: createExpandedColumn(
+                        context, index, pallete, subSection),
                     isExpanded: isExpanded[index],
-                  ),
-                  duration: Duration(milliseconds: 200),
-                )
-
-              ),
+                  )),
             ),
           );
         });
@@ -563,7 +598,7 @@ class _ListArticlesState extends State<ListArticles>
   }
 
   createCollapsedColumn(
-      BuildContext context, int index, Color pallete, Section subSection) {
+      BuildContext context, int indexs, Color pallete, Section subSection) {
     return SizedBox(
       height: MediaQuery.of(context).size.height / 2,
       child: Column(
@@ -571,12 +606,12 @@ class _ListArticlesState extends State<ListArticles>
           Container(
             height: 125,
             padding:
-                index == 0 ? EdgeInsets.only(top: 8) : EdgeInsets.only(top: 0),
+                indexs == 0 ? EdgeInsets.only(top: 8) : EdgeInsets.only(top: 0),
             child: ListCard(
               image: subSection.image,
               title: subSection.name,
               date: "",
-              inverted: index % 2 == 0 ? false : true,
+              inverted: indexs % 2 == 0 ? false : true,
               prevColor: Color(widget.section.color),
               palletcolor: pallete,
             ),
@@ -616,7 +651,8 @@ class _ListArticlesState extends State<ListArticles>
                                 sliver: SliverList(
                                   delegate: SliverChildBuilderDelegate(
                                     (BuildContext context, int index) {
-                                      return listdown(index, snapshot.data);
+                                      return listdown(
+                                          index, snapshot.data, indexs);
                                     },
                                     childCount: snapshot.data.length,
                                   ),
@@ -657,107 +693,175 @@ class _ListArticlesState extends State<ListArticles>
     );
   }
 
-  Widget listdown(int index, List<DuaHeading> data) {
+  Widget listdown(int index, List<DuaHeading> data, int indexs) {
     DuaHeading dataHeading = data[index];
 
-    return Padding(
-      padding: EdgeInsets.only(left: 10.0, right: 10.0, bottom: 20.0),
-      child: Padding(
-        padding: EdgeInsets.only(right: 0),
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10.0),
-              color: Colors.transparent,
-            ),
-            child: InkWell(
-              splashColor: blueGrey,
-              borderRadius: BorderRadius.circular(6.0),
-              onTap: () {
-                Navigator.of(context).push(
-                  PageRouteBuilder(
-                    pageBuilder: (BuildContext context,
-                            Animation<double> animation,
-                            Animation<double> secondaryAnimation) =>
-                        DetailPage(duaHeading: dataHeading),
-                    transitionDuration: Duration(milliseconds: 1000),
-                  ),
-                );
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10.0),
-                  color: Colors.white,
-                ),
+    return AnimatedBuilder(
+        animation: dropdownAnimationControler[indexs],
+        builder: (context, snapshot) {
+          return FadeTransition(
+            opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                CurvedAnimation(
+                    parent: dropdownAnimationControler[indexs],
+                    curve: Interval((1 / data.length) * index, 1.0,
+                        curve: Curves.fastOutSlowIn))),
+            child: new Transform(
+              transform: index % 2 == 0
+                  ? new Matrix4.translationValues(
+                      -30 *
+                          (1.0 -
+                              Tween<double>(begin: 0.0, end: 1.0)
+                                  .animate(CurvedAnimation(
+                                      parent:
+                                          dropdownAnimationControler[indexs],
+                                      curve: Interval(
+                                          (1 / data.length) * index, 1.0,
+                                          curve: Curves.fastOutSlowIn)))
+                                  .value),
+                      0.0,
+                      0.0)
+                  : new Matrix4.translationValues(
+                      30 *
+                          (1.0 -
+                              Tween<double>(begin: 0.0, end: 1.0)
+                                  .animate(CurvedAnimation(
+                                      parent:
+                                          dropdownAnimationControler[indexs],
+                                      curve: Interval(
+                                          (1 / data.length) * index, 1.0,
+                                          curve: Curves.fastOutSlowIn)))
+                                  .value),
+                      0.0,
+                      0.0),
+              child: Padding(
+                padding: EdgeInsets.only(left: 10.0, right: 10.0, bottom: 20.0),
                 child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: <Widget>[
-                      SizedBox(
-                        height: 30,
-                        width: 30,
-                        child: Container(
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                              color: whitebg,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.white.withOpacity(0.7),
-                                  offset: Offset(-6.0, -6.0),
-                                  blurRadius: 16.0,
-                                ),
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.16),
-                                  offset: Offset(6.0, 6.0),
-                                  blurRadius: 16.0,
-                                ),
-                              ]),
-                          child: Center(
-                              child: Text(
-                            (index + 1).toString(),
-                            style: TextStyle(
-                              color: dataHeading.pallet,
-                                shadows: <Shadow>[
-                                  Shadow(
-                                    offset: Offset(0.2, 0.2),
-                                    blurRadius: 1.0,
-                                    color: Colors.black54,
-                                  ),
-
-                                ]
-                            ),
-
-                          )),
-                        ),
+                  padding: EdgeInsets.only(right: 0),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10.0),
+                        color: Colors.transparent,
                       ),
-                      Expanded(
-                        child: Material(
-                          color: Colors.transparent,
-                          child: Container(
-                            padding: EdgeInsets.only(left: 15),
-                            child: Hero(
-                              tag: dataHeading.id.toString() + "_title",
-                              child: Text(
-                                dataHeading.name,
-                                style: TextStyle(
-                                    fontSize: 10.0,
-                                    fontWeight: FontWeight.w600),
-                              ),
+                      child: InkWell(
+                        splashColor: blueGrey,
+                        borderRadius: BorderRadius.circular(6.0),
+                        onTap: () {
+                          index_dropdown = indexs;
+                          dropdownAnimationControler[indexs]
+                              .reverse()
+                              .then<dynamic>((data) async {
+                            if (!mounted) {
+                              return;
+                            }
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  maintainState: false,
+                                  builder: (BuildContext context) {
+                                    return DetailPage(duaHeading: dataHeading);
+                                  }),
+                            );
+                          });
+                          animationController
+                              .reverse()
+                              .then<dynamic>((data) async {
+                            if (!mounted) {
+                              return;
+                            }
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10.0),
+                            color: Colors.white,
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: <Widget>[
+                                SizedBox(
+                                  height: 30,
+                                  width: 30,
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                        color: whitebg,
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.white.withOpacity(0.7),
+                                            offset: Offset(-6.0, -6.0),
+                                            blurRadius: 16.0,
+                                          ),
+                                          BoxShadow(
+                                            color:
+                                                Colors.black.withOpacity(0.16),
+                                            offset: Offset(6.0, 6.0),
+                                            blurRadius: 16.0,
+                                          ),
+                                        ]),
+                                    child: Center(
+                                        child: Text(
+                                      (index + 1).toString(),
+                                      style: TextStyle(
+                                          color: dataHeading.pallet,
+                                          shadows: <Shadow>[
+                                            Shadow(
+                                              offset: Offset(0.2, 0.2),
+                                              blurRadius: 1.0,
+                                              color: Colors.black54,
+                                            ),
+                                          ]),
+                                    )),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: Hero(
+                                      tag: dataHeading.id.toString() + "_title",
+                                      flightShuttleBuilder:
+                                          _flightShuttleBuilder,
+                                      transitionOnUserGestures: true,
+                                      child: Container(
+                                        padding: EdgeInsets.only(left: 15),
+                                        child: Text(
+                                          dataHeading.name,
+                                          style: TextStyle(
+                                              fontSize: 10.0,
+                                              fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
-      ),
+          );
+        });
+  }
+
+  Widget _flightShuttleBuilder(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroFlightDirection flightDirection,
+    BuildContext fromHeroContext,
+    BuildContext toHeroContext,
+  ) {
+    return DefaultTextStyle(
+      style: DefaultTextStyle.of(toHeroContext).style,
+      child: toHeroContext.widget,
     );
   }
 
@@ -765,12 +869,15 @@ class _ListArticlesState extends State<ListArticles>
     List<Section> gSection = [];
     await dbHelper.getAllSubSections(widget.section.id).then((value) {
       int i = 0;
+
       for (Section section in value) {
 //        _colorTween1.insert(
 //            i,
 //            ColorTween(begin: Colors.transparent, end: whitebg)
 //                .animate(_ColorAnimationController1));
         isExpanded.add(false);
+        dropdownAnimationControler.add(AnimationController(
+            duration: const Duration(milliseconds: 500), vsync: this));
         gSection.add(section);
         i++;
       }

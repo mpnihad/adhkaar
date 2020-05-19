@@ -63,64 +63,7 @@ class _BrowseScreenState extends State<BrowseScreen>
   @override
   void initState() {
 
-    const int year = 2020;
-    const int month = 5;
-    const int day = 14;
-    final DateTime when = DateTime.utc(year, month, day);
 
-    // Init settings.
-
-
-    // Init location info.
-
-
-
-
-
-
-    // Init settings.
-    // Set calculation method to JAKIM (Fajr: 18.0 and Isha: 20.0).
-    // Provide all initial default values
-    final PrayerCalculationSettings settings = PrayerCalculationSettings(
-            (PrayerCalculationSettingsBuilder b) => b
-          ..imsakParameter.value = -10.0
-          ..imsakParameter.type = PrayerCalculationParameterType.minutesAdjust
-          ..calculationMethod.replace(CalculationMethod.fromPreset(
-              preset: CalculationMethodPreset
-                  .universityOfIslamicSciencesKarachi,
-              when: DateTime.now().toUtc()))
-          ..juristicMethod.replace(
-              JuristicMethod.fromPreset(preset: JuristicMethodPreset.standard))
-          ..highLatitudeAdjustment = HighLatitudeAdjustment.none
-          ..imsakMinutesAdjustment = 0
-          ..fajrMinutesAdjustment = 0
-          ..sunriseMinutesAdjustment = 0
-          ..dhuhaMinutesAdjustment = 0
-          ..dhuhrMinutesAdjustment = 0
-          ..asrMinutesAdjustment = 0
-          ..maghribMinutesAdjustment = 0
-          ..ishaMinutesAdjustment = 0);
-
-    // Init location info.
-
-    final Geocoordinate geo = Geocoordinate((GeocoordinateBuilder b) => b
-      ..latitude = 11.86752
-      ..longitude = 75.35763
-      ..altitude = 13);
-    const double timezone = 5.5;
-    // Generate prayer times for one day on April 12th, 2018.
-    final Prayers prayers = Prayers.on(
-        date: when, settings: settings, coordinate: geo, timeZone: timezone);
-    print(prayers.imsak);
-    print(prayers.fajr);
-    print(prayers.sunrise);
-    print(prayers.dhuha);
-    print(prayers.dhuhr);
-    print(prayers.asr);
-    print(prayers.sunset);
-    print(prayers.maghrib);
-    print(prayers.isha);
-    print(prayers.midnight);
 
 
     var dbHelper = Helper();

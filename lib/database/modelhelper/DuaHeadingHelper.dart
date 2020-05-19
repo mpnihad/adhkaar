@@ -79,4 +79,55 @@ print("SQL QUERY:   select $columnDuaHeadingRelatedId as id,$columnDuaHeadingNam
       return [];
     }
   }
+
+
+  Future<List<DuaHeading>> getFavoriteData() async {
+
+    try {
+
+      var dbClient = await db;
+      List<DuaHeading> duaHeadings = List();
+      List<Map> maps = await dbClient.rawQuery("select $columnDuaHeadingRelatedId,$columnDuaAr,$columnDuaTr,$columnDuaId,$columnDuaHeadingName,$columnDuaPartNo,$columnSecImage,$columnSecColor from $tableDuaHeading as DUA INNER JOIN $tableSection as SEC ON DUA.$columnId = SEC.$columnDuaSecId WHERE $columnDuaFav='TRUE'");
+      print("SQL QUERY:   select $columnDuaHeadingRelatedId,$columnDuaId,$columnDuaHeadingName from $tableDuaHeading  WHERE $columnDuaFav='TRUE'");
+      if (maps.length > 0) {
+        maps.forEach((f) {
+          duaHeadings.add(DuaHeading.fromMaps(f));
+//          print("getAllDuaHeadings"+ DuaHeading.fromMap(f).toString());
+        });
+
+      }
+      notifyListeners();
+      for(DuaHeading duaHeading in duaHeadings)
+        {
+          print(duaHeading.id);
+        }
+//      dbClient.close();
+      return duaHeadings;
+
+
+    } catch (err) {
+
+      notifyListeners();
+      return [];
+    }
+  }
+
+  Future<int> updateLikefav(int id,String status) async {
+    var dbClient = await db;
+    Map<String, dynamic> row = {
+      columnDuaFav: 'FALSE',
+
+    };
+    int updateCount = await dbClient.update(
+        tableDua,
+        row,
+        where: '$columnDuaId = ?',
+        whereArgs: [id]);
+
+    print(await dbClient.query(
+        tableDua, where: '$columnDuaFav="TRUE"', columns: [columnDuaId]));
+    print(updateCount);
+    return updateCount;
+  }
+
 }

@@ -56,6 +56,7 @@ class Dua {
   int todaysCount;
   int totalCount;
   int playStatus=0;
+  bool showflag=false;
 
   Dua(
       {this.duaAr,

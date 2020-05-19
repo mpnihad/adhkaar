@@ -5,20 +5,24 @@ import 'package:adhkaar/database/helper/Helper.dart';
 import 'package:adhkaar/database/model/Dua.dart';
 import 'package:adhkaar/database/model/Duaheading.dart';
 import 'package:adhkaar/database/modelhelper/DuaHelper.dart';
-import 'package:adhkaar/screens/subdivisionview.dart';
 import 'package:adhkaar/utils/colors.dart';
 import 'package:adhkaar/utils/numberdart.dart';
 import 'package:adhkaar/utils/stagewiget.dart';
+import 'package:feather_icons_flutter/feather_icons_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_neumorphic/flutter_neumorphic.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:like_button/like_button.dart';
+import 'package:share/share.dart';
 
 class DetailPage extends StatefulWidget {
-  DetailPage({@required this.duaHeading, Key key}) : super(key: key);
+  DetailPage({@required this.duaHeading,this.positions=0, Key key}) : super(key: key);
 
   final DuaHeading duaHeading;
+  final int positions;
 
   @override
   _DetailPageState createState() => _DetailPageState();
@@ -30,7 +34,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   AnimationController animationBar;
   DuaHelper helper;
   AnimationController scaleAnimation;
-  AnimationController animationController;
+  AnimationController animationController, animationController_initial;
   bool _menuShown = false;
   double textSize;
   int count;
@@ -40,14 +44,15 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   int prevposition;
 
   Future<List<Dua>> Duas;
+
   @override
   void initState() {
     var dbHelper = Helper();
     helper = DuaHelper(dbHelper.db);
 
-    Duas=getAllDuas(helper);
+    Duas = getAllDuas(helper);
     position = 0;
-    textSize = 12;
+    textSize = 11;
     scaleAnimation = AnimationController(
         vsync: this,
         duration: Duration(milliseconds: 1000),
@@ -55,6 +60,9 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
         upperBound: 1.0);
     animationController =
         AnimationController(vsync: this, duration: Duration(milliseconds: 500));
+
+    animationController_initial = AnimationController(
+        vsync: this, duration: Duration(milliseconds: 1500));
     tabPos = 0;
     count = 1;
 
@@ -66,6 +74,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
     scrollController = ScrollController();
     pageController = PageController();
+
     scrollController.addListener(() {
       ScrollPosition position = scrollController.position;
 //      ScrollDirection direction = position.userScrollDirection;
@@ -87,6 +96,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
     super.dispose();
     animationBar.dispose();
     animationController.dispose();
+    animationController_initial.dispose();
     scaleAnimation.dispose();
     scrollController.dispose();
     pageController.dispose();
@@ -103,6 +113,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    animationController_initial.forward();
     Animation opacityAnimation =
         Tween(begin: 0.0, end: 1.0).animate(animationController);
     if (_menuShown)
@@ -122,17 +133,45 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0.0,
-            leading: Material(
-              color: Colors.transparent,
-              type: MaterialType.transparency,
-              child: IconButton(
-                icon: Icon(Icons.arrow_back),
-                color: Colors.black,
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ),
+            leading: AnimatedBuilder(
+                animation: animationController_initial,
+                builder: (context, snapshot) {
+                  return FadeTransition(
+                    opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                        CurvedAnimation(
+                            parent: animationController_initial,
+                            curve: Curves.fastOutSlowIn)),
+                    child:
+//
+                        ScaleTransition(
+                      scale: CurvedAnimation(
+                          parent: animationController_initial,
+                          curve: Curves.ease),
+                      child: Material(
+                        color: Colors.transparent,
+                        type: MaterialType.transparency,
+                        child: IconButton(
+                          icon: Icon(Icons.arrow_back),
+                          color: Colors.black,
+                          onPressed: () {
+                            animationController_initial.duration =
+                                Duration(milliseconds: 500);
+                            animationController_initial
+                                .reverse()
+                                .then<dynamic>((data) async {
+                              if (!mounted) {
+                                return;
+                              }
+                              animationController_initial.duration =
+                                  Duration(milliseconds: 1500);
+                              Navigator.of(context).pop();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                }),
 
 //            flexibleSpace: FlexibleSpaceBar(
 //              centerTitle: true,
@@ -200,23 +239,41 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 //                  ),
 //                  ))).show(context);
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 10.0, right: 10.0),
-                      child: Column(
-                        children: <Widget>[
-                          Material(
-                              color: Colors.transparent,
-                              type: MaterialType.transparency,
-                              child: Text(
-                                "+ Aa -",
-                                style: TextStyle(
-                                    fontFamily: "Moon",
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600),
-                              )),
-                        ],
-                      ),
-                    ),
+                    child: AnimatedBuilder(
+                        animation: animationController_initial,
+                        builder: (context, snapshot) {
+                          return FadeTransition(
+                            opacity: Tween<double>(begin: 0.0, end: 1.0)
+                                .animate(CurvedAnimation(
+                                    parent: animationController_initial,
+                                    curve: Curves.fastOutSlowIn)),
+                            child:
+//
+                                ScaleTransition(
+                              scale: CurvedAnimation(
+                                  parent: animationController_initial,
+                                  curve: Curves.ease),
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                    top: 10.0, right: 10.0),
+                                child: Column(
+                                  children: <Widget>[
+                                    Material(
+                                        color: Colors.transparent,
+                                        type: MaterialType.transparency,
+                                        child: Text(
+                                          "+ Aa -",
+                                          style: TextStyle(
+                                              fontFamily: "Moon",
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w600),
+                                        )),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
                   ),
                   Positioned(
                     child: FadeTransition(
@@ -308,59 +365,110 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
               FutureBuilder<List<Dua>>(
                   future: Duas,
                   builder: (context, snapshot) {
-
                     if (snapshot.hasData) {
-                      count=snapshot.data[position].todaysCount;
+                      count = snapshot.data[position].todaysCount;
                       return Column(
                         children: <Widget>[
-                          SizedBox(
-                            height: 50,
-                            child: Center(
-                              child: Hero(
-                                tag: widget.duaHeading.id.toString() + "_title",
-                                child: Text(
-                                  widget.duaHeading.name,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontFamily: "Kartika",
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w500,
-                                      color: widget.duaHeading.pallet),
-                                  softWrap: true,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: <Widget>[
-                                Digit<int>(
-                                  padding: EdgeInsets.only(),
-                                  decoration: BoxDecoration(
-                                      color: Colors.blue,
-                                      shape: BoxShape.circle),
-                                  textStyle: TextStyle(
-                                      fontSize: 50,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                      fontFamily: "Moon"),
-                                  id: (position + 1).toString(),
-                                ),
-                                Text(
-                                  "/" + snapshot.data.length.toString(),
-                                  style: TextStyle(
-                                    fontSize: 50,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: "Moon",
-                                    color: Colors.black.withOpacity(0.5),
+                          AnimatedBuilder(
+                              animation: animationController_initial,
+                              builder: (context, snapshot) {
+                                return FadeTransition(
+                                  opacity: Tween<double>(begin: 0.0, end: 1.0)
+                                      .animate(CurvedAnimation(
+                                          parent: animationController_initial,
+                                          curve: Curves.fastOutSlowIn)),
+                                  child:
+//
+                                      ScaleTransition(
+                                    scale: CurvedAnimation(
+                                        parent: animationController_initial,
+                                        curve: Curves.ease),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: Hero(
+                                        tag: widget.duaHeading.id.toString() +
+                                            "_title",
+                                        flightShuttleBuilder:
+                                            _flightShuttleBuilder,
+                                        transitionOnUserGestures: true,
+                                        child: SizedBox(
+                                          height: 50,
+                                          child: Center(
+                                            child: Text(
+                                              widget.duaHeading.name,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                  shadows: <Shadow>[
+                                                    Shadow(
+                                                      offset: Offset(0.2, 0.2),
+                                                      blurRadius: 1.0,
+                                                      color: Colors.black54,
+                                                    ),
+                                                  ],
+                                                  fontFamily: "Kartika",
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.w500,
+                                                  color:
+                                                      widget.duaHeading.pallet),
+                                              softWrap: true,
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 2,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                )
-                              ],
-                            ),
-                          ),
+                                );
+                              }),
+                          AnimatedBuilder(
+                              animation: animationController_initial,
+                              builder: (context, snapshots) {
+                                return FadeTransition(
+                                  opacity: Tween<double>(begin: 0.0, end: 1.0)
+                                      .animate(CurvedAnimation(
+                                          parent: animationController_initial,
+                                          curve: Curves.fastOutSlowIn)),
+                                  child:
+//
+                                      ScaleTransition(
+                                    scale: CurvedAnimation(
+                                        parent: animationController_initial,
+                                        curve: Curves.ease),
+                                    child: SizedBox(
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: <Widget>[
+                                          Digit<int>(
+                                            padding: EdgeInsets.only(),
+                                            decoration: BoxDecoration(
+                                                color: Colors.blue,
+                                                shape: BoxShape.circle),
+                                            textStyle: TextStyle(
+                                                fontSize: 50,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                                fontFamily: "Moon"),
+                                            id: (position + 1).toString(),
+                                          ),
+                                          Text(
+                                            "/" +
+                                                snapshot.data.length.toString(),
+                                            style: TextStyle(
+                                              fontSize: 50,
+                                              fontWeight: FontWeight.bold,
+                                              fontFamily: "Moon",
+                                              color:
+                                                  Colors.black.withOpacity(0.5),
+                                            ),
+                                          )
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
                           SizedBox(
                             height:
                                 MediaQuery.of(context).size.height - 50 - 146,
@@ -374,82 +482,170 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
                                   Expanded(
                                     child: Row(
                                       children: <Widget>[
-                                        Container(
-                                          alignment: Alignment.center,
-                                          height: 300,
-                                          width: 60,
-                                          child: RotatedBox(
-                                              quarterTurns: 3,
-                                              child: DefaultTabController(
-                                                child: TabBar(
-                                                  tabs: [
-                                                    Tab(
-                                                      child: Text(
-                                                        "Arabic",
-                                                        style: TextStyle(
-                                                            fontFamily: "Moon",
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            color: tabPos == 0
-                                                                ? lightBlack
-                                                                : lightGrey),
-                                                      ),
-                                                    ),
+                                        AnimatedBuilder(
+                                            animation:
+                                                animationController_initial,
+                                            builder: (context, snapshot) {
+                                              return FadeTransition(
+                                                opacity: Tween<double>(
+                                                        begin: 0.0, end: 1.0)
+                                                    .animate(CurvedAnimation(
+                                                        parent:
+                                                            animationController_initial,
+                                                        curve: Curves.ease)),
+                                                child: new Transform(
+                                                  transform: new Matrix4
+                                                          .translationValues(
+                                                      -30 *
+                                                          (1.0 -
+                                                              Tween<double>(
+                                                                      begin:
+                                                                          0.0,
+                                                                      end: 1.0)
+                                                                  .animate(CurvedAnimation(
+                                                                      parent:
+                                                                          animationController_initial,
+                                                                      curve: Curves
+                                                                          .fastOutSlowIn))
+                                                                  .value),
+                                                      0.0,
+                                                      0.0),
+//                                                  new Matrix4.translationValues(
+//                                                      30 *
+//                                                          (1.0 -
+//                                                              Tween<double>(begin: 0.0, end: 1.0)
+//                                                                  .animate(CurvedAnimation(
+//                                                                  parent:
+//                                                                  animationController_initial,
+//                                                                  curve: Curves.ease))
+//                                                                  .value),
+//                                                      0.0,
+//                                                      0.0),
 
-                                                    Tab(
-                                                      child: Text(
-                                                        "Transilation",
-                                                        style: TextStyle(
-                                                            fontFamily: "Moon",
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            color: tabPos == 2
-                                                                ? lightBlack
-                                                                : lightGrey),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                  indicator: BoxDecoration(
-                                                      border: Border(
-                                                    top: BorderSide(
-                                                      color: Theme.of(context)
-                                                          .accentColor,
-                                                      width: 5.0,
-                                                    ),
-                                                  )),
-                                                  indicatorPadding:
-                                                      EdgeInsets.all(0),
-                                                  labelPadding:
-                                                      EdgeInsets.only(top: 10),
-                                                  onTap: (pos) {
-                                                    setState(() {
-                                                      tabPos = pos;
-                                                    });
-                                                  },
+                                                  child: Container(
+                                                    alignment: Alignment.center,
+                                                    height: 300,
+                                                    width: 60,
+                                                    child: RotatedBox(
+                                                        quarterTurns: 3,
+                                                        child:
+                                                            DefaultTabController(
+                                                          child: TabBar(
+                                                            tabs: [
+                                                              Tab(
+                                                                child: Text(
+                                                                  "Arabic",
+                                                                  style: TextStyle(
+                                                                      fontFamily:
+                                                                          "Moon",
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                      color: tabPos ==
+                                                                              0
+                                                                          ? lightBlack
+                                                                          : lightGrey),
+                                                                ),
+                                                              ),
+                                                              Tab(
+                                                                child: Text(
+                                                                  "Transilation",
+                                                                  style: TextStyle(
+                                                                      fontFamily:
+                                                                          "Moon",
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                      color: tabPos ==
+                                                                              1
+                                                                          ? lightBlack
+                                                                          : lightGrey),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                            indicator:
+                                                                BoxDecoration(
+                                                                    border:
+                                                                        Border(
+                                                              top: BorderSide(
+                                                                color: Theme.of(
+                                                                        context)
+                                                                    .accentColor,
+                                                                width: 5.0,
+                                                              ),
+                                                            )),
+                                                            indicatorPadding:
+                                                                EdgeInsets.all(
+                                                                    0),
+                                                            labelPadding:
+                                                                EdgeInsets.only(
+                                                                    top: 10),
+                                                            onTap: (pos) {
+                                                              setState(() {
+                                                                tabPos = pos;
+                                                              });
+                                                            },
+                                                          ),
+                                                          length: 2,
+                                                        )),
+                                                  ),
                                                 ),
-                                                length: 2,
-                                              )),
-                                        ),
+                                              );
+                                            }),
                                         Expanded(
-                                          child: FutureBuilder<List<Dua>>(
-                                              future: Duas,
+                                          child: AnimatedBuilder(
+                                              animation:
+                                                  animationController_initial,
                                               builder: (context, snapshot) {
-                                                if (snapshot.hasData) {
-                                                  return PageView.builder(
-                                                    itemBuilder:
-                                                        (context, position) {
-                                                      Dua dua = snapshot
-                                                          .data[position];
+                                                return FadeTransition(
+                                                  opacity: Tween<double>(
+                                                          begin: 0.0, end: 1.0)
+                                                      .animate(CurvedAnimation(
+                                                          parent:
+                                                              animationController_initial,
+                                                          curve: Curves
+                                                              .fastOutSlowIn)),
+                                                  child:
+//
+                                                      ScaleTransition(
+                                                    scale: CurvedAnimation(
+                                                        parent:
+                                                            animationController_initial,
+                                                        curve: Curves.ease),
+                                                    child:
+                                                        FutureBuilder<
+                                                                List<Dua>>(
+                                                            future: Duas,
+                                                            builder: (context,
+                                                                snapshot) {
+                                                              if (snapshot
+                                                                  .hasData) {
 
-                                                      return Padding(
-                                                        padding:
-                                                            EdgeInsets.only(
-                                                                left: 10.0,
-                                                                right: 10.0,
-                                                                bottom: 30.0,
-                                                                top: 10),
-                                                        child: InkWell(
-                                                          onTap: () {
+                                                                return PageView
+                                                                    .builder(
+                                                                  itemBuilder:
+                                                                      (context,
+                                                                          position) {
+
+
+                                                                    Dua dua = snapshot
+                                                                            .data[
+                                                                        position];
+
+                                                                    return Padding(
+                                                                      padding: EdgeInsets.only(
+                                                                          left:
+                                                                              10.0,
+                                                                          right:
+                                                                              10.0,
+                                                                          bottom:
+                                                                              30.0,
+                                                                          top:
+                                                                              10),
+                                                                      child:
+                                                                          InkWell(
+                                                                        onTap:
+                                                                            () {
 //                                            Navigator.of(context).push(
 //                                              PageRouteBuilder(
 //                                                pageBuilder: (BuildContext
@@ -464,371 +660,673 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 //                                                    milliseconds: 1000),
 //                                              ),
 //                                            );
-                                                          },
-                                                          child: Container(
-                                                            decoration: BoxDecoration(
-                                                                borderRadius:
-                                                                    BorderRadius
-                                                                        .circular(
-                                                                            10.0),
-                                                                boxShadow: [
-                                                                  BoxShadow(
-                                                                      color: Colors
-                                                                          .black
-                                                                          .withAlpha(
-                                                                              70),
-                                                                      offset: Offset(
-                                                                          3.0,
-                                                                          10.0),
-                                                                      blurRadius:
-                                                                          15.0)
-                                                                ]),
-                                                            height: 250.0,
-                                                            child: Stack(
-                                                              children: <
-                                                                  Widget>[
-                                                                Hero(
-                                                                  tag: dua.id
-                                                                          .toString() +
-                                                                      "_background1",
-                                                                  child:
-                                                                      Container(
-                                                                    decoration:
-                                                                        BoxDecoration(
-                                                                      color: Colors
-                                                                          .white,
-                                                                      borderRadius:
-                                                                          BorderRadius.circular(
-                                                                              10.0),
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                                Column(
-                                                                  children: <
-                                                                      Widget>[
-                                                                    Expanded(
-                                                                      child:
-                                                                          Padding(
-                                                                        padding: EdgeInsets.only(
-                                                                            top:
-                                                                                16,
-                                                                            bottom:
-                                                                                16,
-                                                                            left:
-                                                                                16,
-                                                                            right:
-                                                                                5),
+                                                                        },
                                                                         child:
-                                                                            Scrollbar(
+                                                                            Container(
+                                                                          decoration: BoxDecoration(
+                                                                              borderRadius: BorderRadius.circular(10.0),
+                                                                              boxShadow: [
+                                                                                BoxShadow(color: Colors.black.withAlpha(70), offset: Offset(3.0, 10.0), blurRadius: 15.0)
+                                                                              ]),
+                                                                          height:
+                                                                              250.0,
                                                                           child:
-                                                                              SingleChildScrollView(
-                                                                            physics:
-                                                                                AlwaysScrollableScrollPhysics(),
-                                                                            child:
-                                                                                Padding(
-                                                                              padding: EdgeInsets.only(right: 11),
-                                                                              child: Column(
-                                                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                                                mainAxisSize: MainAxisSize.max,
-                                                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                                              Stack(
+                                                                            children: <Widget>[
+                                                                              Hero(
+                                                                                tag: dua.id.toString() + "_background1",
+                                                                                child: Container(
+                                                                                  decoration: BoxDecoration(
+                                                                                    color: Colors.white,
+                                                                                    borderRadius: BorderRadius.circular(10.0),
+                                                                                  ),
+                                                                                ),
+                                                                              ),
+                                                                              Column(
                                                                                 children: <Widget>[
-                                                                                  Material(
-                                                                                    color: Colors.transparent,
-                                                                                    child: tabPos==0?Text(
-                                                                                      dua.duaAr,
-                                                                                      style: TextStyle(fontSize: textSize),
-                                                                                      textDirection: TextDirection.rtl,
-                                                                                    ):dua.duaTrans=="no"||dua.duaTrans==""?Text(
-                                                                                      dua.duaAr,
-                                                                                      style: TextStyle(fontSize: textSize),
-                                                                                      textDirection: TextDirection.rtl,
-                                                                                    ):Text(
-                                                                                      dua.duaTrans,
-                                                                                      style: TextStyle(fontSize: textSize,fontStyle: FontStyle.italic),
-                                                                                      textDirection: TextDirection.ltr,
-                                                                                    ),
-                                                                                  ),
-                                                                                  Divider(
-                                                                                    thickness: 1,
-                                                                                  ),
-                                                                                  Material(
-                                                                                    color: Colors.transparent,
-                                                                                    child: Text(
-                                                                                      dua.duaTr,
-                                                                                      style: TextStyle(
-                                                                                        fontSize: textSize,
-                                                                                        fontWeight: FontWeight.w500,
-                                                                                        wordSpacing: 5,
-                                                                                        letterSpacing: .5,
+                                                                                  Expanded(
+                                                                                    child: Padding(
+                                                                                      padding: EdgeInsets.only(top: 16, bottom: 10, left: 16, right: 5),
+                                                                                      child: Scrollbar(
+                                                                                        child: SingleChildScrollView(
+                                                                                          physics: AlwaysScrollableScrollPhysics(),
+                                                                                          child: Padding(
+                                                                                            padding: EdgeInsets.only(right: 11),
+                                                                                            child: Column(
+                                                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                              mainAxisSize: MainAxisSize.max,
+                                                                                              mainAxisAlignment: MainAxisAlignment.center,
+                                                                                              children: <Widget>[
+                                                                                                dua.duaHeader == ""
+                                                                                                    ? SizedBox()
+                                                                                                    : Padding(
+                                                                                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                                                                                        child: Material(
+                                                                                                            color: Colors.transparent,
+                                                                                                            child: Text(
+                                                                                                              dua.duaHeader == "no" ? "" : dua.duaHeader,
+                                                                                                              style: TextStyle(fontSize: textSize),
+                                                                                                              textDirection: TextDirection.ltr,
+                                                                                                            )),
+                                                                                                      ),
+                                                                                                Neumorphic(
+                                                                                                  boxShape: NeumorphicBoxShape.roundRect(borderRadius: BorderRadius.circular(4)),
+                                                                                                  padding: EdgeInsets.all(0),
+                                                                                                  style: NeumorphicStyle(shape: NeumorphicShape.flat, depth: 3, intensity: .5, lightSource: LightSource.left, color: whitebg, shadowLightColor: Colors.white, shadowDarkColor: Colors.white),
+                                                                                                  child: Padding(
+                                                                                                    padding: const EdgeInsets.all(8.0),
+                                                                                                    child: Column(
+                                                                                                      children: <Widget>[
+                                                                                                        Container(
+                                                                                                          width: MediaQuery.of(context).size.width - 60,
+                                                                                                          child: Material(
+                                                                                                            color: Colors.transparent,
+                                                                                                            child: tabPos == 0
+                                                                                                                ? Text(
+                                                                                                                    dua.duaAr == "no" || dua.duaAr == "-" ? "" : dua.duaAr,
+                                                                                                                    style: TextStyle(fontSize: textSize + 3),
+                                                                                                                    textDirection: TextDirection.rtl,
+                                                                                                                  )
+                                                                                                                : dua.duaTrans == "no" || dua.duaTrans == "" || dua.duaTrans == "-"
+                                                                                                                    ? Text(
+                                                                                                                        dua.duaAr,
+                                                                                                                        style: TextStyle(fontSize: textSize + 3),
+                                                                                                                        textDirection: TextDirection.rtl,
+                                                                                                                      )
+                                                                                                                    : Text(
+                                                                                                                        dua.duaTrans,
+                                                                                                                        style: TextStyle(fontSize: textSize, fontStyle: FontStyle.italic),
+                                                                                                                        textDirection: TextDirection.ltr,
+                                                                                                                      ),
+                                                                                                          ),
+                                                                                                        ),
+                                                                                                        dua.duaTr == "no" || dua.duaTr == "" || dua.duaTr == "-"
+                                                                                                            ? SizedBox()
+                                                                                                            : Divider(
+                                                                                                                thickness: 1,
+                                                                                                              ),
+                                                                                                        dua.duaTr == "no" || dua.duaTr == "" || dua.duaTr == "-"
+                                                                                                            ? SizedBox()
+                                                                                                            : Material(
+                                                                                                                color: Colors.transparent,
+                                                                                                                child: Text(
+                                                                                                                  dua.duaTr == "no" ? "" : dua.duaTr,
+                                                                                                                  style: TextStyle(
+                                                                                                                    fontSize: textSize,
+                                                                                                                    fontWeight: FontWeight.w500,
+                                                                                                                    wordSpacing: 5,
+                                                                                                                    letterSpacing: .5,
+                                                                                                                  ),
+                                                                                                                ),
+                                                                                                              ),
+                                                                                                      ],
+                                                                                                    ),
+                                                                                                  ),
+                                                                                                ),
+                                                                                                !dua.showflag || (dua.duaMiddle == "" && dua.duaAr2 == "" && dua.duaTr2 == "" && dua.duaTrans2 == "" && dua.duaFooter == "")
+                                                                                                    ? SizedBox()
+                                                                                                    : Divider(
+                                                                                                        thickness: 1,
+                                                                                                      ),
+                                                                                                !dua.showflag || dua.duaMiddle == "no" || dua.duaMiddle == ""
+                                                                                                    ? SizedBox()
+                                                                                                    : Container(
+                                                                                                        padding: EdgeInsets.only(bottom: 8.0),
+                                                                                                        width: MediaQuery.of(context).size.width - 60,
+                                                                                                        child: Material(
+                                                                                                            color: Colors.transparent,
+                                                                                                            child: Text(
+                                                                                                              dua.duaMiddle == "no" ? "" : dua.duaMiddle,
+                                                                                                              style: TextStyle(fontSize: textSize),
+                                                                                                              textDirection: TextDirection.ltr,
+                                                                                                            )),
+                                                                                                      ),
+                                                                                                !dua.showflag
+                                                                                                    ? SizedBox()
+                                                                                                    : (((dua.duaAr2 == "no" || dua.duaAr2 == "") && (dua.duaTrans2 == "no" || dua.duaTrans2 == "") && (dua.duaTr2 == "no" || dua.duaTr2 == "")))
+                                                                                                        ? SizedBox()
+                                                                                                        : Padding(
+                                                                                                            padding: EdgeInsets.only(bottom: 8.0),
+                                                                                                            child: Neumorphic(
+                                                                                                              boxShape: NeumorphicBoxShape.roundRect(borderRadius: BorderRadius.circular(4)),
+                                                                                                              padding: EdgeInsets.all(0),
+                                                                                                              style: NeumorphicStyle(shape: NeumorphicShape.flat, depth: 3, intensity: .5, lightSource: LightSource.left, color: whitebg, shadowLightColor: Colors.white, shadowDarkColor: Colors.white),
+                                                                                                              child: Padding(
+                                                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                                                child: Column(
+                                                                                                                  children: <Widget>[
+                                                                                                                    Container(
+                                                                                                                      width: MediaQuery.of(context).size.width - 60,
+                                                                                                                      child: Material(
+                                                                                                                        color: Colors.transparent,
+                                                                                                                        child: tabPos == 0
+                                                                                                                            ? Text(
+                                                                                                                                dua.duaAr2 == "no" ? "" : dua.duaAr2,
+                                                                                                                                style: TextStyle(fontSize: textSize + 3),
+                                                                                                                                textDirection: TextDirection.rtl,
+                                                                                                                              )
+                                                                                                                            : dua.duaTrans2 == "no" || dua.duaTrans2 == ""
+                                                                                                                                ? Text(
+                                                                                                                                    dua.duaAr2,
+                                                                                                                                    style: TextStyle(fontSize: textSize + 3),
+                                                                                                                                    textDirection: TextDirection.rtl,
+                                                                                                                                  )
+                                                                                                                                : Text(
+                                                                                                                                    dua.duaTrans2,
+                                                                                                                                    style: TextStyle(fontSize: textSize, fontStyle: FontStyle.italic),
+                                                                                                                                    textDirection: TextDirection.ltr,
+                                                                                                                                  ),
+                                                                                                                      ),
+                                                                                                                    ),
+                                                                                                                    !dua.showflag || (dua.duaAr2 == "" && dua.duaTr2 == "" && dua.duaTrans2 == "" && dua.duaFooter == "")
+                                                                                                                        ? SizedBox()
+                                                                                                                        : Divider(
+                                                                                                                            thickness: 1,
+                                                                                                                          ),
+                                                                                                                    !dua.showflag || dua.duaTr2 == "no" || dua.duaTr2 == ""
+                                                                                                                        ? SizedBox()
+                                                                                                                        : Material(
+                                                                                                                            color: Colors.transparent,
+                                                                                                                            child: Text(
+                                                                                                                              dua.duaTr2 == "no" ? "" : dua.duaTr2,
+                                                                                                                              style: TextStyle(
+                                                                                                                                fontSize: textSize,
+                                                                                                                                fontWeight: FontWeight.w500,
+                                                                                                                                wordSpacing: 5,
+                                                                                                                                letterSpacing: .5,
+                                                                                                                              ),
+                                                                                                                            ),
+                                                                                                                          ),
+                                                                                                                  ],
+                                                                                                                ),
+                                                                                                              ),
+                                                                                                            ),
+                                                                                                          ),
+                                                                                                !dua.showflag || dua.duaFooter == "no" || dua.duaFooter == ""
+                                                                                                    ? SizedBox()
+                                                                                                    : Material(
+                                                                                                        color: Colors.transparent,
+                                                                                                        child: Text(
+                                                                                                          dua.duaFooter == "no" ? "" : dua.duaFooter,
+                                                                                                          style: TextStyle(
+                                                                                                            fontSize: textSize,
+                                                                                                            fontWeight: FontWeight.w500,
+                                                                                                            wordSpacing: 5,
+                                                                                                            letterSpacing: .5,
+                                                                                                          ),
+                                                                                                        ),
+                                                                                                      ),
+                                                                                                (dua.duaMiddle == "" && dua.duaAr2 == "" && dua.duaTr2 == "" && dua.duaTrans2 == "" && dua.duaFooter == "") || (((dua.duaAr2 == "no" || dua.duaAr2 == "") && (dua.duaTrans2 == "no" || dua.duaTrans2 == "") && (dua.duaTr2 == "no" || dua.duaTr2 == "")))
+                                                                                                    ? SizedBox()
+                                                                                                    : InkWell(
+                                                                                                        onTap: () {
+                                                                                                          setState(() {
+                                                                                                            dua.showflag = !dua.showflag;
+                                                                                                          });
+                                                                                                        },
+                                                                                                        child: Padding(
+                                                                                                          padding: const EdgeInsets.only(top: 8.0),
+                                                                                                          child: Column(
+                                                                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                            children: <Widget>[
+                                                                                                              dua.showflag
+                                                                                                                  ? SizedBox()
+                                                                                                                  : Padding(
+                                                                                                                      padding: const EdgeInsets.only(bottom: 3.0),
+                                                                                                                      child: Text(
+                                                                                                                        dua.duaMiddle + "\n" + dua.duaAr2 + dua.duaTr2 + dua.duaFooter,
+                                                                                                                        textAlign: TextAlign.start,
+                                                                                                                        style: TextStyle(
+                                                                                                                          fontSize: textSize,
+                                                                                                                        ),
+                                                                                                                        softWrap: true,
+                                                                                                                        overflow: TextOverflow.fade,
+                                                                                                                        maxLines: 2,
+                                                                                                                      ),
+                                                                                                                    ),
+                                                                                                              dua.showflag
+                                                                                                                  ? Text(
+                                                                                                                      "Close",
+                                                                                                                      style: TextStyle(color: Colors.blue),
+                                                                                                                    )
+                                                                                                                  : Text("Read More", style: TextStyle(color: Colors.blue))
+                                                                                                            ],
+                                                                                                          ),
+                                                                                                        ),
+                                                                                                      ),
+                                                                                              ],
+                                                                                            ),
+                                                                                          ),
+                                                                                        ),
                                                                                       ),
                                                                                     ),
                                                                                   ),
-                                                                                  Material(
-                                                                                    color: Colors.transparent,
-                                                                                    child: Text(
-                                                                                      "",
-                                                                                      style: TextStyle(fontSize: textSize),
-                                                                                      textDirection: TextDirection.rtl,
+                                                                                  Padding(
+                                                                                    padding: const EdgeInsets.only(bottom: 10.0),
+                                                                                    child: Row(
+                                                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                                                                      children: <Widget>[
+                                                                                        Expanded(
+                                                                                          child: Container(),
+                                                                                        ),
+                                                                                        Center(
+                                                                                          child: LikeButton(
+                                                                                            size: 20,
+                                                                                            circleColor: CircleColor(start:Colors.blue, end: Colors.blue),
+                                                                                            bubblesColor: BubblesColor(
+                                                                                              dotPrimaryColor: Colors.blue,
+                                                                                              dotSecondaryColor: Colors.blue,
+                                                                                            ),
+                                                                                            likeBuilder: (bool isLiked) {
+                                                                                              if( isLiked)
+                                                                                              {
+                                                                                                updateLike(
+                                                                                                    helper,
+                                                                                                    snapshot
+                                                                                                        .data[position]
+                                                                                                        .id,
+                                                                                                    "TRUE");
+                                                                                                dua.duaFav="TRUE";
+
+
+                                                                                              }
+                                                                                              else
+                                                                                              {
+                                                                                                updateLike(
+                                                                                                    helper,
+                                                                                                    snapshot
+                                                                                                        .data[position]
+                                                                                                        .id,
+                                                                                                    "FALSE");
+
+                                                                                                dua.duaFav="FALSE";
+
+                                                                                              }
+                                                                                              return isLiked
+                                                                                                  ?  Icon(
+                                                                                                  FontAwesomeIcons.solidBookmark,
+                                                                                                  color: Colors.red,
+                                                                                                  size: 20)
+                                                                                                  : Icon(
+                                                                                                FontAwesomeIcons.bookmark,
+                                                                                                color: Colors.black,
+                                                                                                      size: 20,
+                                                                                                    );
+                                                                                            },
+                                                                                            isLiked:dua.duaFav=="TRUE"?true:false,
+
+                                                                                            padding: EdgeInsets.all(0),
+                                                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                            likeCount: null,
+                                                                                          ),
+                                                                                        ),
+                                                                                        SizedBox(
+                                                                                          width: 20,
+                                                                                        ),
+                                                                                        Builder(
+                                                                                            builder: (BuildContext context) {
+                                                                                            return Center(
+                                                                                              child:  InkWell(
+
+                                                                                                  onTap: () {
+
+
+                                                                                                    String final_text;
+                                                                                                    String shareText="\n"+
+                                                                                                        dua.duaHeader == ""?"":(dua.duaHeader+"\n")+
+                                                                                                    "---------------------------------"+"\n";
+                                                                                                        String shareText1= dua.duaAr == "no" || dua.duaAr == "-"?"":(dua.duaAr+"\n");
+                                                                                                        String shareText2= dua.duaTr == "no" || dua.duaTr == "" || dua.duaTr == "-"?"":(dua.duaTr+"\n");
+                                                                                                        String shareText3= dua.duaTrans == "no" || dua.duaTrans == "" || dua.duaTrans == "-"?"":(dua.duaTrans+"\n")+
+
+                                                                                                        "-----------------------"+"\n";
+                                                                                                        String shareText4= dua.duaMiddle == "no" || dua.duaMiddle == ""?"":(dua.duaMiddle+"\n")+
+                                                                                                        "-----------------------"+"\n";
+                                                                                                        String shareText5= dua.duaAr2 == "no" ?"":(dua.duaAr2+"\n");
+                                                                                                        String shareText6= dua.duaTr2 == "no" || dua.duaTr2 == ""?"":dua.duaTr2+"\n";
+                                                                                                        String shareText7= dua.duaTrans2 == "no" || dua.duaTrans2 == ""?"":dua.duaTrans2+"\n"+
+                                                                                                        "-----------------------"+"\n";
+                                                                                                        String shareText9= dua.duaFooter;
+                                                                                                    ;
+                                                                                                    final_text=shareText1+shareText2+shareText3+shareText4+shareText5+shareText6+shareText7+shareText9;
+                                                                                                      Share.share(final_text,
+                                                                                                          subject: widget.duaHeading.name,
+                                                                                                         );
+                                                                                                  },child: Icon(FeatherIcons.share, size: 20)),
+                                                                                            );
+                                                                                          }
+                                                                                        ),
+                                                                                        SizedBox(
+                                                                                          width: 10,
+                                                                                        ),
+                                                                                      ],
                                                                                     ),
                                                                                   ),
-                                                                                ],
-                                                                              ),
-                                                                            ),
-                                                                          ),
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                    Row(
-                                                                      children: <
-                                                                          Widget>[
-                                                                        Expanded(
+                                                                                  Row(
+                                                                                    children: <Widget>[
+                                                                                      Expanded(
 //                                                            width: MediaQuery.of(
 //                                                                        context)
 //                                                                    .size
 //                                                                    .width -
 //                                                                100 -
 //                                                                108,
-                                                                            child:
-                                                                                PlayerWidget(
-                                                                          url:
-                                                                              "https://halva1.000webhostapp.com/adkarimage/15.mp3",
-                                                                          playStatus: snapshot
-                                                                              .data[position]
-                                                                              .playStatus,
-                                                                        )),
-                                                                        SizedBox(
-                                                                          width:
-                                                                              10,
-                                                                        ),
-                                                                        Container(
-                                                                          child:
-                                                                              SizedBox(
-                                                                            width:
-                                                                                88,
-                                                                            height:
-                                                                                40,
-                                                                            child:
-                                                                                NeumorphicButton(
-                                                                              boxShape: NeumorphicBoxShape.roundRect(borderRadius: BorderRadius.circular(6)),
-                                                                              style: NeumorphicStyle(shape: NeumorphicShape.flat, depth: 8, intensity: .3, lightSource: LightSource.bottomRight, color: count != dua.totalCount ? Colors.lightBlue : blueGrey, shadowLightColor: Colors.black),
-                                                                              onClick: () {
-                                                                                setState(() {
-                                                                                  if (count == dua.totalCount) {
-                                                                                    pageController.animateToPage(position == snapshot.data.length - 1 ? position : position + 1, duration: Duration(milliseconds: 1000), curve: Curves.ease);
-                                                                                  } else {
-                                                                                    dua.todaysCount++;
-                                                                                    count++;
-                                                                                    if (count == dua.totalCount) {
-                                                                                      pageController.animateToPage(position == snapshot.data.length - 1 ? position : position + 1, duration: Duration(milliseconds: 1000), curve: Curves.ease);
-                                                                                    }
-                                                                                  }
-                                                                                });
-                                                                              },
-                                                                              child: Center(
-                                                                                  child: Text(
-                                                                                "${count} / ${dua.totalCount}",
-                                                                                style: TextStyle(color: Colors.white, fontSize: 12),
-                                                                              )),
-                                                                            ),
+                                                                                          child: PlayerWidget(
+                                                                                        url: "https://halva1.000webhostapp.com/adkarimage/15.mp3",
+                                                                                        playStatus: snapshot.data[position].playStatus,
+                                                                                      )),
+                                                                                      SizedBox(
+                                                                                        width: 10,
+                                                                                      ),
+                                                                                      Container(
+                                                                                        child: SizedBox(
+                                                                                          width: 88,
+                                                                                          height: 40,
+                                                                                          child: NeumorphicButton(
+                                                                                            boxShape: NeumorphicBoxShape.roundRect(borderRadius: BorderRadius.circular(6)),
+                                                                                            style: NeumorphicStyle(shape: NeumorphicShape.flat, depth: 8, intensity: .3, lightSource: LightSource.bottomRight, color: count != dua.totalCount ? Colors.lightBlue : blueGrey, shadowLightColor: Colors.black),
+                                                                                            onClick: () {
+                                                                                              setState(() {
+                                                                                                if (count == dua.totalCount) {
+                                                                                                  pageController.animateToPage(position == snapshot.data.length - 1 ? position : position + 1, duration: Duration(milliseconds: 1000), curve: Curves.ease);
+                                                                                                } else {
+                                                                                                  dua.todaysCount++;
+                                                                                                  count++;
+                                                                                                  if (count == dua.totalCount) {
+                                                                                                    pageController.animateToPage(position == snapshot.data.length - 1 ? position : position + 1, duration: Duration(milliseconds: 1000), curve: Curves.ease);
+                                                                                                  }
+                                                                                                }
+                                                                                              });
+                                                                                            },
+                                                                                            child: Center(
+                                                                                                child: Text(
+                                                                                              "${count} / ${dua.totalCount}",
+                                                                                              style: TextStyle(color: Colors.white, fontSize: 12),
+                                                                                            )),
+                                                                                          ),
+                                                                                        ),
+                                                                                      ),
+                                                                                      SizedBox(
+                                                                                        width: 10,
+                                                                                      )
+                                                                                    ],
+                                                                                  )
+                                                                                ],
+                                                                              ),
+                                                                            ],
                                                                           ),
                                                                         ),
-                                                                        SizedBox(
-                                                                          width:
-                                                                              10,
-                                                                        )
-                                                                      ],
-                                                                    )
-                                                                  ],
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      );
-                                                    },
-                                                    onPageChanged: (position) {
-                                                      prevposition=this.position;
-                                                      this.position = position;
+                                                                      ),
+                                                                    );
+                                                                  },
+                                                                  onPageChanged:
+                                                                      (position) {
+                                                                    prevposition =
+                                                                        this.position;
+                                                                    this.position =
+                                                                        position;
 
-                                                      updateCount(helper,snapshot.data[prevposition].id, count);
-                                                      count=snapshot.data[position].todaysCount;
-                                                      int i = 0;
-                                                      for (Dua todo
-                                                          in snapshot.data) {
-                                                        if (position != i) {
-                                                          snapshot
-                                                              .data[position]
-                                                              .playStatus = 0;
-                                                        } else {
-                                                          snapshot
-                                                              .data[position]
-                                                              .playStatus = 0;
-                                                        }
-                                                        i++;
-                                                      }
+                                                                    updateCount(
+                                                                        helper,
+                                                                        snapshot
+                                                                            .data[prevposition]
+                                                                            .id,
+                                                                        count);
+                                                                    count = snapshot
+                                                                        .data[
+                                                                            position]
+                                                                        .todaysCount;
+                                                                    int i = 0;
+                                                                    for (Dua todo
+                                                                        in snapshot
+                                                                            .data) {
+                                                                      if (position !=
+                                                                          i) {
+                                                                        snapshot
+                                                                            .data[position]
+                                                                            .playStatus = 0;
+                                                                      } else {
+                                                                        snapshot
+                                                                            .data[position]
+                                                                            .playStatus = 0;
+                                                                      }
+                                                                      i++;
+                                                                    }
 
-                                                      setState(() {});
-                                                    },
-                                                    controller: pageController,
-                                                    scrollDirection:
-                                                        Axis.horizontal,
-                                                    physics:
-                                                        _CustomScrollPhysics(),
-                                                    pageSnapping: true,
-                                                    //  controller: scrollController,
+                                                                    setState(
+                                                                        () {});
+                                                                  },
+                                                                  controller:
+                                                                      pageController,
+                                                                  scrollDirection:
+                                                                      Axis.horizontal,
+                                                                  physics:
+                                                                      _CustomScrollPhysics(),
+                                                                  pageSnapping:
+                                                                      true,
+                                                                  //  controller: scrollController,
 
-                                                    itemCount:
-                                                        snapshot.data.length,
-                                                  );
-                                                } else {
-                                                  return Container(
-                                                    alignment: Alignment.center,
-                                                    child: SizedBox(
-                                                      height: 30,
-                                                      width: 30,
-                                                      child:
-                                                          CircularProgressIndicator(),
-                                                    ),
-                                                  );
-                                                }
+                                                                  itemCount:
+                                                                      snapshot
+                                                                          .data
+                                                                          .length,
+                                                                );
+                                                              } else {
+                                                                return Container(
+                                                                  alignment:
+                                                                      Alignment
+                                                                          .center,
+                                                                  child:
+                                                                      SizedBox(
+                                                                    height: 30,
+                                                                    width: 30,
+                                                                    child:
+                                                                        CircularProgressIndicator(),
+                                                                  ),
+                                                                );
+                                                              }
+                                                            }),
+                                                  ),
+                                                );
                                               }),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 15.0),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: Container(),
-                                        ),
-                                        RotationTransition(
-                                          turns: new AlwaysStoppedAnimation(
-                                              45 / 360),
-                                          child: SizedBox(
-                                            width: 40,
-                                            height: 40,
-                                            child: Neumorphic(
-                                              boxShape:
-                                                  NeumorphicBoxShape.roundRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8)),
-                                              style: NeumorphicStyle(
-                                                  shape:
-                                                      NeumorphicShape.concave,
-                                                  depth: 3,
-                                                  intensity: .4,
-                                                  lightSource: LightSource.left,
-                                                  color: position == 0
-                                                      ? Colors.grey
-                                                      : whitebg,
-                                                  shadowLightColor: whitebg,
-                                                  shadowDarkColor:
-                                                      Colors.black),
-                                              child: Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  splashColor:
-                                                      Colors.blueAccent,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          8.0),
-                                                  onTap: () {
-                                                    pageController
-                                                        .animateToPage(
-                                                            position == 0
-                                                                ? 0
-                                                                : position - 1,
-                                                            duration: Duration(
-                                                                milliseconds:
-                                                                    1000),
-                                                            curve: Curves.ease);
-                                                  },
-                                                  child: RotationTransition(
+                                  AnimatedBuilder(
+                                      animation: animationController_initial,
+                                      builder: (context, snapshots) {
+                                        return FadeTransition(
+                                          opacity: Tween<double>(
+                                                  begin: 0.0, end: 1.0)
+                                              .animate(CurvedAnimation(
+                                                  parent:
+                                                      animationController_initial,
+                                                  curve: Curves.ease)),
+                                          child: new Transform(
+                                            transform: new Matrix4
+                                                    .translationValues(
+                                                30 *
+                                                    (1.0 -
+                                                        Tween<double>(
+                                                                begin: 0.0,
+                                                                end: 1.0)
+                                                            .animate(CurvedAnimation(
+                                                                parent:
+                                                                    animationController_initial,
+                                                                curve: Curves
+                                                                    .ease))
+                                                            .value),
+                                                0.0,
+                                                0.0),
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 15.0),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: <Widget>[
+                                                  Expanded(
+                                                    child: Container(),
+                                                  ),
+                                                  RotationTransition(
                                                     turns:
                                                         new AlwaysStoppedAnimation(
-                                                            -45 / 360),
-                                                    child: Icon(
-                                                      Icons.navigate_before,
-                                                      size: 20,
+                                                            45 / 360),
+                                                    child: SizedBox(
+                                                      width: 40,
+                                                      height: 40,
+                                                      child: Neumorphic(
+                                                        boxShape: NeumorphicBoxShape
+                                                            .roundRect(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8)),
+                                                        style: NeumorphicStyle(
+                                                            shape:
+                                                                NeumorphicShape
+                                                                    .concave,
+                                                            depth: 3,
+                                                            intensity: .4,
+                                                            lightSource:
+                                                                LightSource
+                                                                    .left,
+                                                            color: position == 0
+                                                                ? Colors.grey
+                                                                : whitebg,
+                                                            shadowLightColor:
+                                                                whitebg,
+                                                            shadowDarkColor:
+                                                                Colors.black),
+                                                        child: Material(
+                                                          color: Colors
+                                                              .transparent,
+                                                          child: InkWell(
+                                                            splashColor: Colors
+                                                                .blueAccent,
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8.0),
+                                                            onTap: () {
+                                                              pageController.animateToPage(
+                                                                  position == 0
+                                                                      ? 0
+                                                                      : position -
+                                                                          1,
+                                                                  duration: Duration(
+                                                                      milliseconds:
+                                                                          1000),
+                                                                  curve: Curves
+                                                                      .ease);
+                                                            },
+                                                            child:
+                                                                RotationTransition(
+                                                              turns:
+                                                                  new AlwaysStoppedAnimation(
+                                                                      -45 /
+                                                                          360),
+                                                              child: Icon(
+                                                                Icons
+                                                                    .navigate_before,
+                                                                size: 20,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
+                                                  SizedBox(
+                                                    width: 30,
+                                                  ),
+                                                  RotationTransition(
+                                                    turns:
+                                                        new AlwaysStoppedAnimation(
+                                                            45 / 360),
+                                                    child: SizedBox(
+                                                      width: 40,
+                                                      height: 40,
+                                                      child: Neumorphic(
+                                                        boxShape: NeumorphicBoxShape
+                                                            .roundRect(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8)),
+                                                        padding:
+                                                            EdgeInsets.all(0),
+                                                        style: NeumorphicStyle(
+                                                            shape:
+                                                                NeumorphicShape
+                                                                    .concave,
+                                                            depth: 3,
+                                                            intensity: .5,
+                                                            lightSource:
+                                                                LightSource
+                                                                    .left,
+                                                            color: position ==
+                                                                    snapshot.data
+                                                                            .length -
+                                                                        1
+                                                                ? Colors.grey
+                                                                : Colors.blue
+                                                                    .withOpacity(
+                                                                        0.8),
+                                                            shadowLightColor:
+                                                                Colors.white,
+                                                            shadowDarkColor:
+                                                                Colors.black),
+                                                        child: Material(
+                                                          color: Colors
+                                                              .transparent,
+                                                          child: InkWell(
+                                                            splashColor:
+                                                                Colors.white,
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8.0),
+                                                            child: RotationTransition(
+                                                                turns:
+                                                                    new AlwaysStoppedAnimation(
+                                                                        -45 /
+                                                                            360),
+                                                                child: Icon(
+                                                                    Icons
+                                                                        .navigate_next,
+                                                                    size: 20)),
+                                                            onTap: () {
+                                                              pageController.animateToPage(
+                                                                  position ==
+                                                                          snapshot.data.length -
+                                                                              1
+                                                                      ? position
+                                                                      : position +
+                                                                          1,
+                                                                  duration: Duration(
+                                                                      milliseconds:
+                                                                          1000),
+                                                                  curve: Curves
+                                                                      .ease);
+                                                            },
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    width: 20,
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        SizedBox(
-                                          width: 30,
-                                        ),
-                                        RotationTransition(
-                                          turns: new AlwaysStoppedAnimation(
-                                              45 / 360),
-                                          child: SizedBox(
-                                            width: 40,
-                                            height: 40,
-                                            child: Neumorphic(
-                                              boxShape:
-                                                  NeumorphicBoxShape.roundRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8)),
-                                              padding: EdgeInsets.all(0),
-                                              style: NeumorphicStyle(
-                                                  shape:
-                                                      NeumorphicShape.concave,
-                                                  depth: 3,
-                                                  intensity: .5,
-                                                  lightSource: LightSource.left,
-                                                  color: position ==
-                                                          snapshot.data.length - 1
-                                                      ? Colors.grey
-                                                      : Colors.blue
-                                                          .withOpacity(0.8),
-                                                  shadowLightColor:
-                                                      Colors.white,
-                                                  shadowDarkColor:
-                                                      Colors.black),
-                                              child: Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  splashColor: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          8.0),
-                                                  child: RotationTransition(
-                                                      turns:
-                                                          new AlwaysStoppedAnimation(
-                                                              -45 / 360),
-                                                      child: Icon(
-                                                          Icons.navigate_next,
-                                                          size: 20)),
-                                                  onTap: () {
-                                                    pageController.animateToPage(
-                                                        position ==
-                                                                snapshot.data.length - 1
-                                                            ? position
-                                                            : position + 1,
-                                                        duration: Duration(
-                                                            milliseconds: 1000),
-                                                        curve: Curves.ease);
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          width: 20,
-                                        ),
-                                      ],
-                                    ),
-                                  )
+                                        );
+                                      })
 //                          Player(
 //                            songData: songModel,
 //                            downloadData: downloadModel,
@@ -840,18 +1338,16 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
                           ),
                         ],
                       );
+                    } else {
+                      return Container(
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          height: 30,
+                          width: 30,
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
                     }
-                    else
-                      {
-                        return Container(
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            height: 30,
-                            width: 30,
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      }
                   }),
               Positioned(
                 child: FadeTransition(
@@ -1024,14 +1520,41 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
         i++;
       }
     });
+    int position=0;
+    for(Dua data in gDua) {
+      if (
+      data.duaPartNo == widget.positions) {
+
+        pageController=new PageController(initialPage: position);
+
+this.position=position;
+      }
+      position++;
+    }
+//    pageController.animateToPage(widget.position, duration: Duration(milliseconds: 1000), curve: Curves.ease);
+
     return gDua;
   }
 
-  Future<List<Dua>> updateCount(DuaHelper dbHelper,int id,int count) async {
+  Future<List<Dua>> updateCount(DuaHelper dbHelper, int id, int count) async {
+    await dbHelper.updateCount(id, count);
+  }
+  Future<List<Dua>> updateLike(DuaHelper dbHelper, int id, String status) async {
+    await dbHelper.updateLike(id, status);
 
+  }
 
-    await dbHelper.updateCount(id,count);
-
+  Widget _flightShuttleBuilder(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroFlightDirection flightDirection,
+    BuildContext fromHeroContext,
+    BuildContext toHeroContext,
+  ) {
+    return DefaultTextStyle(
+      style: DefaultTextStyle.of(toHeroContext).style,
+      child: toHeroContext.widget,
+    );
   }
 }
 

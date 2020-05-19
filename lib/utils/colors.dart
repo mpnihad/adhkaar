@@ -9,3 +9,6 @@ const lightBlack = Color(0xFF323643);
 const lightGrey = Color(0xFFC5CCD6);
 const blueGrey = Color(0xFF9DA3B4);
 const whitebg = Color(0xFFF5F6F8);
+const bluePrayer = Color(0xFF9FA9FB);
+const bluePrayerER = Color(0xFF7887F9);
+const bluePrayerERLight = Color(0xFF8390F9);

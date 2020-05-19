@@ -19,7 +19,7 @@ class _ExpandableCardContainerState extends State<ExpandableCardContainer> {
   Widget build(BuildContext context) {
     return new AnimatedContainer(
       duration: new Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
+      curve: Curves.linearToEaseOut,
       child: widget.isExpanded ? widget.expandedChild : widget.collapsedChild,
     );
   }
