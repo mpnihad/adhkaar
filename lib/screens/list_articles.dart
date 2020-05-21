@@ -86,6 +86,7 @@ class _ListArticlesState extends State<ListArticles>
 //    palletitem();
     expandedsize = 180.0;
     _scrollController = ScrollController();
+    _scrollController.keepScrollOffset;
     _scrollController1 = ScrollController();
     _scrollController.addListener(_scrollListener);
     _scrollController1.addListener(_scrollListener1);
@@ -212,11 +213,15 @@ class _ListArticlesState extends State<ListArticles>
 
                       NotificationListener<ScrollNotification>(
                     onNotification: (scrollNotification) {
+
+
                       if (scrollNotification.metrics.axis == Axis.vertical) {
                         _ColorAnimationController.animateTo(
                             scrollNotification.metrics.pixels / 100);
                         return true;
                       }
+
+                      return false;
                     },
                     child: MediaQuery.removePadding(
                       removeTop: true,
@@ -412,6 +417,7 @@ class _ListArticlesState extends State<ListArticles>
                                     builder: (context, snapshot) {
                                       if (snapshot.hasData) {
                                         return CustomScrollView(
+                                          controller: _scrollController1,
                                             physics:
                                                 AlwaysScrollableScrollPhysics(),
                                             slivers: <Widget>[
@@ -509,10 +515,14 @@ class _ListArticlesState extends State<ListArticles>
               child: GestureDetector(
                   onTap: () {
                     setState(() {
-//                    Timer(Duration(milliseconds: 300), () {
-//                      _scrollController.animateTo(((index + 1) * 125.0),
-//                          duration: Duration(seconds: 1), curve: Curves.ease);
-//                    });
+                    Timer(Duration(milliseconds: 300), () {
+
+//                      _scrollController.position.animateTo(scrolln.offset+((index)*125.0), duration: Duration(seconds: 1), curve: Curves.ease);
+
+//                    print("Scrooled offset ${((index)*125.0)-_scrollController.position.maxScrollExtent}");
+
+                      _scrollController1.animateTo(  ((index)*120.0), duration: Duration(seconds: 1), curve: Curves.ease);
+                    });
 
                       duaHeadingId = subSection.id;
                       duaHeadinglist =
@@ -534,7 +544,12 @@ class _ListArticlesState extends State<ListArticles>
                       } else {
                         dropdownAnimationControler[index].reverse();
                       }
-                      print(((index + 1) * 125.0));
+
+                    print(_scrollController.position.maxScrollExtent);
+                    print(_scrollController.offset);
+                    print(_scrollController.position.minScrollExtent);
+                      print("Index value ${((index + 1) * 125.0)}");
+                    print(_scrollController.offset);
                     });
 
 //                  Navigator.push(

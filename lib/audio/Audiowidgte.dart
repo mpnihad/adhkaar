@@ -15,12 +15,14 @@ enum PlayingRouteState { speakers, earpiece }
 
 class PlayerWidget extends StatefulWidget {
   final String url;
+  final int id;
   final int playStatus;
   final PlayerMode mode;
 
   PlayerWidget(
       {Key key,
       @required this.url,
+        this.id,
       this.mode = PlayerMode.MEDIA_PLAYER,
       this.playStatus = 0})
       : super(key: key);
@@ -350,7 +352,7 @@ class _PlayerWidgetState extends State<PlayerWidget> {
     int readdata = 0;
     bool abc;
     try {
-      final file = await File('$dir/"Adkaar"');
+      final file = await File('$dir/"Adkaar_${widget.id}"');
       abc = await File(file.path).exists();
       readdata = 1;
       // Read the file
@@ -373,7 +375,7 @@ class _PlayerWidgetState extends State<PlayerWidget> {
 
       });
       var dio = Dio();
-      await dio.download(url, '$dir/"Adkaar"',
+      await dio.download(url, '$dir/"Adkaar_${widget.id}"',
           options: Options(headers: {HttpHeaders.acceptEncodingHeader: "*"}),
           // disable gzip
           onReceiveProgress: (received, total) {
@@ -387,7 +389,7 @@ class _PlayerWidgetState extends State<PlayerWidget> {
           });
 
 
-      File file = new File('$dir/"Adkaar"');
+      File file = new File('$dir/"Adkaar_${widget.id}"');
 
 //      var request = await http.get(
 //        url,
@@ -415,7 +417,7 @@ class _PlayerWidgetState extends State<PlayerWidget> {
       // default playback rate is 1.0
       // this should be called after _audioPlayer.play() or _audioPlayer.resume()
       // this can also be called everytime the user wants to change playback rate in the UI
-      File file = File('$dir/"Adkaar"');
+      File file = File('$dir/"Adkaar_${widget.id}"');
       final result = await _audioPlayer.play(file.path,
           isLocal: true, position: playPosition);
       if (result == 1) setState(() => _playerState = PlayerState.playing);
@@ -505,7 +507,7 @@ class MyViewModel extends ChangeNotifier {
 
   get downloadProgress => _progress;
 
-  Future<File> startDownloading(String url) async {
+  Future<File> startDownloading(String url,int id) async {
     _progress = null;
     notifyListeners();
 
@@ -522,7 +524,7 @@ class MyViewModel extends ChangeNotifier {
     List<int> bytes = [];
     String dir = (await getApplicationDocumentsDirectory()).path;
 
-    _file = await _getFile('$dir/"Adkaar"');
+    _file = await _getFile('$dir/"Adkaar_${id}"');
     response.stream.listen(
       (List<int> newBytes) {
         bytes.addAll(newBytes);

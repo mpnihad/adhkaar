@@ -15,7 +15,7 @@ class DuaHelper {
   Future<List<Dua>> getAllDua(int id) async {
     var dbClient = await db;
     List<Dua> duas = List();
-    List<Map> maps = await dbClient.rawQuery("select * from $tableDua where $columnDuaRelatedId=$id order by $columnDuaPartNo");
+    List<Map> maps = await dbClient.rawQuery("select * from $tableDua where $columnDuaRelatedId=$id order by cast($columnDuaHmNo as int) ");
 
     print("SQL QUERY: select * from $tableDua where $columnDuaRelatedId=$id order by $columnDuaPartNo");
     if (maps.length > 0) {

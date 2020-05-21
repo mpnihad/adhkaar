@@ -63,43 +63,39 @@ class ListCard extends StatelessWidget {
                           lightSource: LightSource.bottomRight,
                           color: palletcolor,
                           shadowLightColor: whitebg),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8.0),
-
-                        child: SizedBox(
-                          height: 60,
-                          width: 60,
-                          child: CachedNetworkImage(
-                            imageBuilder: (context, imageProvider) => Container(
-                              decoration: BoxDecoration(
-                                image: DecorationImage(
-                                  image: imageProvider,
-                                  fit: BoxFit.cover,
-                                ),
+                      child: SizedBox(
+                        height: 60,
+                        width: 60,
+                        child: CachedNetworkImage(
+                          imageBuilder: (context, imageProvider) => Container(
+                            decoration: BoxDecoration(
+                              image: DecorationImage(
+                                image: imageProvider,
+                                fit: BoxFit.cover,
                               ),
                             ),
-                            imageUrl: image,
-                            placeholder: (context, url) => Material(
-                              child: Container(
-                                width: 5.0,
-                                height: 10.0,
-                                child: SizedBox(
-                                    width: 10.0,
-                                    height: 10.0,
-                                    child:  Loading(indicator: BallGridPulseIndicator(), size: 10.0,color: Colors.black),),
-                              ),
-                            ),
-                            errorWidget: (context, url, error) =>
-                                new Icon(Icons.error),
                           ),
+                          imageUrl: image,
+                          progressIndicatorBuilder: (context, url, downloadProgress) =>
+                              SizedBox(
+                                  height: 10,
+                                  child: CircularProgressIndicator(value: downloadProgress.progress)),
+//                          placeholder: (context, url) => Material(
+//                            child: SizedBox(
+//                              height:10,width:10,
+//                              child: Container(
+//                                width: 5.0,
+//                                height: 10.0,
+//                                child: SizedBox(
+//                                    width: 10.0,
+//                                    height: 10.0,
+//                                    child:  Loading(indicator: BallGridPulseIndicator(), size: 10.0,color: Colors.black),),
+//                              ),
+//                            ),
+//                          ),
+                          errorWidget: (context, url, error) =>
+                              new Icon(Icons.error),
                         ),
-//                    Image(
-//
-//                      image: AssetImage("assets/images/$image"),
-//                      height: 100,
-//                      fit: BoxFit.cover,
-//                      width: 100,
-//                    ),
                       ),
                     ),
                   ),
@@ -318,35 +314,27 @@ class ListCard extends StatelessWidget {
                           lightSource: LightSource.bottomLeft,
                           color: palletcolor,
                           shadowLightColor: palletcolor),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8.0),
-
-                        child: SizedBox(
-                          height: 60,
-                          width: 60,
-                          child: CachedNetworkImage(
-                            imageBuilder: (context, imageProvider) => Container(
-                              decoration: BoxDecoration(
-                                image: DecorationImage(
-                                  image: imageProvider,
-                                  fit: BoxFit.cover,
-                                ),
+                      child: SizedBox(
+                        height: 60,
+                        width: 60,
+                        child: CachedNetworkImage(
+                          imageBuilder: (context, imageProvider) => Container(
+                            decoration: BoxDecoration(
+                              image: DecorationImage(
+                                image: imageProvider,
+                                fit: BoxFit.cover,
                               ),
                             ),
-                            imageUrl: image,
-                            placeholder: (context, url) =>
-                                new CircularProgressIndicator(),
-                            errorWidget: (context, url, error) =>
-                                new Icon(Icons.error),
                           ),
+                          imageUrl: image,
+
+                          progressIndicatorBuilder: (context, url, downloadProgress) =>
+                              SizedBox(
+                                height: 10,
+                                  child: CircularProgressIndicator(value: downloadProgress.progress)),
+                          errorWidget: (context, url, error) =>
+                              new Icon(Icons.error),
                         ),
-//                    Image(
-//
-//                      image: AssetImage("assets/images/$image"),
-//                      height: 100,
-//                      fit: BoxFit.cover,
-//                      width: 100,
-//                    ),
                       ),
                     ),
                   ),

@@ -459,13 +459,11 @@ class _BrowseScreenState extends State<BrowseScreen>
                                     ),
 
                                 imageUrl: pSection.image,
-                                placeholder: (context, url) =>
+
+                                progressIndicatorBuilder: (context, url, downloadProgress) =>
                                     SizedBox(
-                                        width: 10.0,
-                                        height: 10.0,
-                                        child: new CircularProgressIndicator(
-                                          strokeWidth: 2.0,
-                                        )),
+                                        height: 10,
+                                        child: CircularProgressIndicator(value: downloadProgress.progress, strokeWidth: 2.0,)),
                                 errorWidget: (context, url, error) =>
                                 new Icon(Icons.error),
                               ),

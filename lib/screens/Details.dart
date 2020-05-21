@@ -856,7 +856,15 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
                                                                                                           ),
                                                                                                         ),
                                                                                                       ),
-                                                                                                (dua.duaMiddle == "" && dua.duaAr2 == "" && dua.duaTr2 == "" && dua.duaTrans2 == "" && dua.duaFooter == "") || (((dua.duaAr2 == "no" || dua.duaAr2 == "") && (dua.duaTrans2 == "no" || dua.duaTrans2 == "") && (dua.duaTr2 == "no" || dua.duaTr2 == "")))
+                                                                                                (dua.duaMiddle == "" &&
+                                                                                                    (dua.duaAr2 == "no" ||
+                                                                                                        dua.duaAr2 == "")
+                                                                                                    && (dua.duaTr2 == "no" ||
+                                                                                                        dua.duaTr2 == "")
+                                                                                                    && (dua.duaTrans2 == "no" ||
+                                                                                                        dua.duaTrans2 == "")
+                                                                                                    && dua.duaFooter == "")
+
                                                                                                     ? SizedBox()
                                                                                                     : InkWell(
                                                                                                         onTap: () {
@@ -975,18 +983,18 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
                                                                                                     String final_text;
                                                                                                     String shareText="\n"+
                                                                                                         dua.duaHeader == ""?"":(dua.duaHeader+"\n")+
-                                                                                                    "---------------------------------"+"\n";
+                                                                                                    "-------------------------------------------------------------"+"\n";
                                                                                                         String shareText1= dua.duaAr == "no" || dua.duaAr == "-"?"":(dua.duaAr+"\n");
                                                                                                         String shareText2= dua.duaTr == "no" || dua.duaTr == "" || dua.duaTr == "-"?"":(dua.duaTr+"\n");
                                                                                                         String shareText3= dua.duaTrans == "no" || dua.duaTrans == "" || dua.duaTrans == "-"?"":(dua.duaTrans+"\n")+
 
-                                                                                                        "-----------------------"+"\n";
+                                                                                                        "-------------------------------------------------------------"+"\n";
                                                                                                         String shareText4= dua.duaMiddle == "no" || dua.duaMiddle == ""?"":(dua.duaMiddle+"\n")+
-                                                                                                        "-----------------------"+"\n";
+                                                                                                        "-------------------------------------------------------------"+"\n";
                                                                                                         String shareText5= dua.duaAr2 == "no" ?"":(dua.duaAr2+"\n");
                                                                                                         String shareText6= dua.duaTr2 == "no" || dua.duaTr2 == ""?"":dua.duaTr2+"\n";
                                                                                                         String shareText7= dua.duaTrans2 == "no" || dua.duaTrans2 == ""?"":dua.duaTrans2+"\n"+
-                                                                                                        "-----------------------"+"\n";
+                                                                                                        "-------------------------------------------------------------"+"\n";
                                                                                                         String shareText9= dua.duaFooter;
                                                                                                     ;
                                                                                                     final_text=shareText1+shareText2+shareText3+shareText4+shareText5+shareText6+shareText7+shareText9;
@@ -1013,7 +1021,8 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 //                                                                100 -
 //                                                                108,
                                                                                           child: PlayerWidget(
-                                                                                        url: "https://halva1.000webhostapp.com/adkarimage/15.mp3",
+                                                                                        url: snapshot.data[position].duaAudAr,
+                                                                                        id:snapshot.data[position].id,
                                                                                         playStatus: snapshot.data[position].playStatus,
                                                                                       )),
                                                                                       SizedBox(

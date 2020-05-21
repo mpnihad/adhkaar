@@ -35,7 +35,6 @@ dependencies:
   palette_generator: ^0.2.0
   provider: ^4.0.1
   localstorage: ^3.0.0
-
   audioplayers: ^0.14.0
   path_provider: ^1.1.0
   shared_preferences: ^0.5.3+5
@@ -54,9 +53,10 @@ dependencies:
   flutter_staggered_grid_view: ^0.3.0
   flutter_local_notifications: ^1.4.3
   rxdart: ^0.23.1
-
-
+  hijri: ^0.2.5
   flutter_countdown: ^0.1.4
+  table_calendar: ^2.2.3
+  cron: ^0.2.3
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -104,9 +104,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
-    - assets/images/background.jpeg
     - assets/images/icon.png
-    - assets/images/icons/
     - assets/adhkar.db
     - assets/prayerimage/
 
@@ -122,6 +120,7 @@ flutter:
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/assets-and-images/#from-packages
+
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
