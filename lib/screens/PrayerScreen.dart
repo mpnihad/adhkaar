@@ -3,7 +3,9 @@ import 'dart:ui';
 
 import 'package:adhkaar/database/helper/Helper.dart';
 import 'package:adhkaar/database/model/Duaheading.dart';
+import 'package:adhkaar/database/model/Location.dart';
 import 'package:adhkaar/database/modelhelper/DuaHeadingHelper.dart';
+import 'package:adhkaar/database/modelhelper/LocationHelper.dart';
 import 'package:adhkaar/icons/sunset_icons_icons.dart';
 import 'package:adhkaar/model/MethordModel.dart';
 import 'package:adhkaar/prayercalculator/src/models/calculation_method.dart';
@@ -14,8 +16,12 @@ import 'package:adhkaar/prayercalculator/src/models/prayer_calculation_settings.
 import 'package:adhkaar/prayercalculator/src/models/prayers.dart';
 import 'package:adhkaar/utils/colors.dart';
 import 'package:adhkaar/utils/prayerConst.dart';
+import 'package:feather_icons_flutter/feather_icons_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_neumorphic/flutter_neumorphic.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:hijri/umm_alqura_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -34,11 +40,10 @@ class PrayerScreen extends StatefulWidget {
 
 class _PrayerScreenState extends State<PrayerScreen>
     with TickerProviderStateMixin {
-  var textController = TextEditingController();
   Timer _timer;
+  Timer _timer1;
   FocusNode _focus;
 
-  double get widthButtonCancel => textController.text?.isEmpty ?? true ? 0 : 50;
   ScrollController _scrollController;
   ScrollController _scrollController1;
   List<PaletteGenerator> pallets;
@@ -87,7 +92,7 @@ class _PrayerScreenState extends State<PrayerScreen>
   Prayers prayers, selectedPrayer;
 
   SharedPreferences sharedPreferences;
-
+  Location initialLocation;
   Timer timer;
   double expandedsize;
   Geocoordinate geo;
@@ -103,6 +108,13 @@ class _PrayerScreenState extends State<PrayerScreen>
   var selectedHigherLatitudePos;
 
   CalendarController _calendarController;
+
+  Future<List<DropdownMenuItem>> locationList;
+
+  LocationHelper locationHelper;
+  Location selectedValue;
+
+  StreamController<List<Location>> _locationStream;
 
   _scrollListener() {
     if (isShrink != lastStatus) {
@@ -139,6 +151,11 @@ class _PrayerScreenState extends State<PrayerScreen>
     var dbHelper = Helper();
     helper = DuaHeadingHelper(dbHelper.db);
     duaHelper = DuaHeadingHelper(dbHelper.db);
+
+    locationHelper = LocationHelper(dbHelper.db);
+//    locationList =
+//        getLocationList(locationHelper);
+
     _prayerWidget = Container();
     _calendarController = CalendarController();
     prayerConsts = prayerConst();
@@ -187,6 +204,7 @@ class _PrayerScreenState extends State<PrayerScreen>
     _ColorAnimationController1 =
         AnimationController(vsync: this, duration: Duration(seconds: 2));
     slidePrayerControler.forward();
+    _locationStream = StreamController<List<Location>>.broadcast();
     setAdjustmentTimeInitial(when);
 
     // Init settings.
@@ -206,6 +224,7 @@ class _PrayerScreenState extends State<PrayerScreen>
     slidePrayerControler.dispose();
     _calendarController.dispose();
     _scrollController.dispose();
+    _locationStream.close();
     _scrollController.removeListener(_scrollListener);
     _scrollController1.removeListener(_scrollListener1);
     super.dispose();
@@ -276,26 +295,12 @@ class _PrayerScreenState extends State<PrayerScreen>
                       context: context,
                       child: Material(
                           color: Colors.transparent,
-                          child: CustomScrollView (
+                          child: CustomScrollView(
                             controller: _scrollController,
                             physics: AlwaysScrollableScrollPhysics(),
                             slivers: <Widget>[
                               SliverAppBar(
                                 centerTitle: false,
-//                    title:   Container(
-//
-//                    alignment: Alignment.centerLeft,
-//                    child: Image.asset(
-//                    "assets/images/icon.png",
-//                    width: 50,
-//                    height: 50,
-//                    ),
-//                    ),
-
-                                ///Properties of app bar
-//                  backgroundColor: isShrink
-//                      ? Color(widget.prevColor)
-//                      : Colors.transparent,
                                 floating: true,
                                 pinned: true,
                                 backgroundColor: whitebg,
@@ -310,15 +315,12 @@ class _PrayerScreenState extends State<PrayerScreen>
                                       children: <Widget>[
                                         GestureDetector(
                                           onTap: () {
-//                        Navigator.push(
-//                            context,
-//                            MaterialPageRoute(
-//                                builder: (context) => SettingsScreen()));
+
                                           },
                                           child: CircleAvatar(
                                             backgroundColor: Colors.black,
                                             backgroundImage:
-                                            AssetImage("assets/user.png"),
+                                                AssetImage("assets/user.png"),
                                             maxRadius: 16,
                                           ),
                                         ),
@@ -330,8 +332,8 @@ class _PrayerScreenState extends State<PrayerScreen>
                                             child: Container(
                                               decoration: BoxDecoration(
                                                   borderRadius:
-                                                  BorderRadius.circular(
-                                                      100),
+                                                      BorderRadius.circular(
+                                                          100),
                                                   border: Border.all(
                                                       width: 1,
                                                       color: Colors.white)),
@@ -358,10 +360,10 @@ class _PrayerScreenState extends State<PrayerScreen>
                                       builder: (BuildContext context,
                                           BoxConstraints constraints) {
                                         double percent =
-                                        ((constraints.maxHeight -
-                                            kToolbarHeight) *
-                                            100 /
-                                            (180 - kToolbarHeight));
+                                            ((constraints.maxHeight -
+                                                    kToolbarHeight) *
+                                                100 /
+                                                (180 - kToolbarHeight));
                                         double dx = 0;
 
                                         dx = 100 - percent;
@@ -375,13 +377,12 @@ class _PrayerScreenState extends State<PrayerScreen>
                                           ),
                                           child: Transform.translate(
                                             child: Container(
-                                              alignment:
-                                              Alignment.bottomCenter,
+                                              alignment: Alignment.bottomCenter,
                                               child: Container(
-                                                padding: EdgeInsets.only(
-                                                    bottom: 20),
+                                                padding:
+                                                    EdgeInsets.only(bottom: 20),
                                                 alignment:
-                                                Alignment.bottomCenter,
+                                                    Alignment.bottomCenter,
                                                 child: Image.asset(
                                                   "assets/images/icon.png",
                                                   width: 50,
@@ -389,8 +390,8 @@ class _PrayerScreenState extends State<PrayerScreen>
                                                 ),
                                               ),
                                             ),
-                                            offset: Offset(-dx,
-                                                -kToolbarHeight - 35 + dx),
+                                            offset: Offset(
+                                                -dx, -kToolbarHeight - 35 + dx),
                                           ),
                                         );
                                       },
@@ -408,23 +409,23 @@ class _PrayerScreenState extends State<PrayerScreen>
                                               height: 90.0,
                                               child: Align(
                                                   alignment:
-                                                  Alignment.bottomLeft,
+                                                      Alignment.bottomLeft,
                                                   child: Stack(
                                                     children: <Widget>[
                                                       Center(
                                                         child: Text(
                                                           "Adkhar",
                                                           style: TextStyle(
-                                                              color: Colors
-                                                                  .black,
+                                                              color:
+                                                                  Colors.black,
                                                               fontSize: 25.0,
                                                               fontWeight:
-                                                              FontWeight
-                                                                  .w600,
+                                                                  FontWeight
+                                                                      .w600,
                                                               fontFamily:
-                                                              'SelametLebaran'),
-                                                          textAlign: TextAlign
-                                                              .center,
+                                                                  'SelametLebaran'),
+                                                          textAlign:
+                                                              TextAlign.center,
                                                         ),
                                                       ),
                                                     ],
@@ -437,95 +438,89 @@ class _PrayerScreenState extends State<PrayerScreen>
                                   ],
                                 ),
                               ),
+                              SliverFillRemaining(
+                                child: currentPrayer == null
+                                    ? Container()
+                                    : Column(
+                                        children: <Widget>[
+                                          Expanded(
+                                            child: StreamBuilder(
+                                                stream: Stream.periodic(
+                                                    Duration(seconds: 1),
+                                                    (i) => i),
+                                                builder: (BuildContext context,
+                                                    AsyncSnapshot<int>
+                                                        snapshot) {
+                                                  DateFormat format =
+                                                      DateFormat("mm:ss");
 
+                                                  var now = new DateTime.now();
 
+                                                  var date = new DateTime
+                                                          .fromMicrosecondsSinceEpoch(
+                                                      currentPrayer
+                                                              .millisecondsSinceEpoch *
+                                                          1000);
+                                                  var diff =
+                                                      date.difference(now);
 
-                          SliverFillRemaining(
-                            child:currentPrayer == null
-                                    ? Container() : Column(
-                                  children: <Widget>[
+                                                  var dateString = "";
 
-                                         Expanded(
-                                           child: StreamBuilder(
-                                        stream: Stream.periodic(
-                                              Duration(seconds: 1), (i) => i),
-                                        builder: (BuildContext context,
-                                              AsyncSnapshot<int> snapshot) {
-                                            DateFormat format =
-                                            DateFormat("mm:ss");
+                                                  var remaingTimeString =
+                                                      diff.inMinutes;
+                                                  if ((DateTime.now()
+                                                              .microsecondsSinceEpoch -
+                                                          currentPrayer
+                                                              .microsecondsSinceEpoch) <
+                                                      0) {
+                                                    if (diff.inHours == 0) {
+                                                      dateString =
+                                                          '- ${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
+                                                    } else {
+                                                      dateString =
+                                                          '- ${diff.inHours}:${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
+                                                    }
+                                                  } else {
+                                                    var diff =
+                                                        now.difference(date);
 
-
-                                            var now = new DateTime.now();
-
-                                            var date = new DateTime
-                                                .fromMicrosecondsSinceEpoch(
-                                                currentPrayer
-                                                    .millisecondsSinceEpoch *
-                                                    1000);
-                                            var diff = date.difference(now);
-
-
-                                            var dateString = "";
-
-                                            var remaingTimeString =
-                                                diff.inMinutes;
-                                            if ((DateTime.now()
-                                                .microsecondsSinceEpoch -
-                                                currentPrayer
-                                                    .microsecondsSinceEpoch) <
-                                                0) {
-                                              if (diff.inHours == 0) {
-                                                dateString =
-                                                '- ${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
-                                              } else {
-                                                dateString =
-                                                '- ${diff.inHours}:${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
-                                              }
-                                            } else {
-                                              var diff = now.difference(date);
-
-                                              if (diff.inHours == 0) {
-                                                dateString =
-                                                '+ ${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
-                                              } else {
-                                                dateString =
-                                                '+ ${diff.inHours}:${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
-                                              }
-                                            }
+                                                    if (diff.inHours == 0) {
+                                                      dateString =
+                                                          '+ ${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
+                                                    } else {
+                                                      dateString =
+                                                          '+ ${diff.inHours}:${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
+                                                    }
+                                                  }
 //                                          print(dateString);
-                                            var _today =
-                                            new ummAlquraCalendar.now();
+                                                  var _today =
+                                                      new ummAlquraCalendar
+                                                          .now();
 
-                                            print(_today
-                                                .toFormat("dd MMMM yyyy"));
-
-
-                                            return SingleChildScrollView(
-                                              child: Column(
-                                                children: <Widget>[
-
-                                                  Padding(
-                                                    padding:
-                                                    const EdgeInsets.only(
-                                                        right: 25,
-                                                        left: 25),
-                                                    child: Container(
-                                                      width: MediaQuery.of(
-                                                          context)
-                                                          .size
-                                                          .width -
-                                                          50,
-                                                      decoration: BoxDecoration(
-                                                          borderRadius:
-                                                          BorderRadius
-                                                              .all(Radius
-                                                              .circular(
-                                                              10))),
-                                                      child: Stack(
-                                                        children: <Widget>[
-                                                          AnimatedSwitcher(
-                                                            child:
-                                                            _prayerWidget,
+                                                  return ListView(
+                                                    children: <Widget>[
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                    .only(
+                                                                right: 25,
+                                                                left: 25),
+                                                        child: Container(
+                                                          width: MediaQuery.of(
+                                                                      context)
+                                                                  .size
+                                                                  .width -
+                                                              50,
+                                                          decoration: BoxDecoration(
+                                                              borderRadius: BorderRadius
+                                                                  .all(Radius
+                                                                      .circular(
+                                                                          10))),
+                                                          child: Stack(
+                                                            children: <Widget>[
+                                                              AnimatedSwitcher(
+                                                                child:
+                                                                    _prayerWidget,
 
 //                                                  switchOutCurve: Curves.fastOutSlowIn,
 //                                                  switchInCurve: Curves.fastOutSlowIn,
@@ -535,226 +530,215 @@ class _PrayerScreenState extends State<PrayerScreen>
 //                                                      child: child, opacity: new CurvedAnimation(parent: animationController, curve: Curves.fastOutSlowIn),
 //                                                    );
 //                                                  } ,
-                                                            duration:
-                                                            const Duration(
-                                                                seconds:
-                                                                2),
-                                                          ),
-                                                          Positioned(
-                                                              bottom: 0,
-                                                              right: 10,
-                                                              child: Column(
-                                                                children: <
-                                                                    Widget>[
-                                                                  Row(
+                                                                duration:
+                                                                    const Duration(
+                                                                        seconds:
+                                                                            2),
+                                                              ),
+                                                              Positioned(
+                                                                  bottom: 0,
+                                                                  right: 10,
+                                                                  child: Column(
                                                                     children: <
                                                                         Widget>[
-                                                                      Icon(
-                                                                        Icons
-                                                                            .location_on,
-                                                                        size:
-                                                                        15,
-                                                                        color:
-                                                                        Colors.white,
+                                                                      Row(
+                                                                        children: <
+                                                                            Widget>[
+                                                                          Icon(
+                                                                            Icons.location_on,
+                                                                            size:
+                                                                                15,
+                                                                            color:
+                                                                                Colors.white,
+                                                                          ),
+                                                                          Text(
+                                                                            initialLocation.cityName,
+                                                                            style: TextStyle(
+                                                                                color: Colors.white,
+                                                                                fontSize: 12,
+                                                                                fontFamily: 'ProximaNova',
+                                                                                fontWeight: FontWeight.w600),
+                                                                            textAlign:
+                                                                                TextAlign.center,
+                                                                          ),
+                                                                        ],
                                                                       ),
-                                                                      Text(
-                                                                        "Kannur",
-                                                                        style: TextStyle(
-                                                                            color: Colors.white,
-                                                                            fontSize: 12,
-                                                                            fontFamily: 'ProximaNova',
-                                                                            fontWeight: FontWeight.w600),
-                                                                        textAlign:
-                                                                        TextAlign.center,
+                                                                      Padding(
+                                                                        padding:
+                                                                            const EdgeInsets.only(bottom: 5.0),
+                                                                        child:
+                                                                            Text(
+                                                                          _today
+                                                                              .toFormat("dd MMMM yyyy")
+                                                                              .toString(),
+                                                                          style: TextStyle(
+                                                                              color: Colors.white,
+                                                                              fontSize: 12,
+                                                                              fontFamily: 'ProximaNova',
+                                                                              fontWeight: FontWeight.w600),
+                                                                          textAlign:
+                                                                              TextAlign.left,
+                                                                        ),
                                                                       ),
                                                                     ],
-                                                                  ),
-                                                                  Padding(
-                                                                    padding: const EdgeInsets
+                                                                    crossAxisAlignment:
+                                                                        CrossAxisAlignment
+                                                                            .start,
+                                                                  )),
+                                                              Padding(
+                                                                padding: const EdgeInsets
                                                                         .only(
-                                                                        bottom:
-                                                                        5.0),
-                                                                    child:
+                                                                    left: 10.0,
+                                                                    top: 16.0),
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: <
+                                                                      Widget>[
                                                                     Text(
-                                                                      _today
-                                                                          .toFormat("dd MMMM yyyy")
-                                                                          .toString(),
+                                                                      "Next Prayer",
                                                                       style: TextStyle(
                                                                           color: Colors
                                                                               .white,
                                                                           fontSize:
-                                                                          12,
-                                                                          fontFamily:
-                                                                          'ProximaNova',
+                                                                              12,
                                                                           fontWeight:
-                                                                          FontWeight.w600),
+                                                                              FontWeight.w600),
                                                                       textAlign:
-                                                                      TextAlign.left,
+                                                                          TextAlign
+                                                                              .center,
                                                                     ),
-                                                                  ),
-                                                                ],
-                                                                crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .start,
-                                                              )),
-                                                          Padding(
-                                                            padding:
-                                                            const EdgeInsets
-                                                                .only(
-                                                                left:
-                                                                10.0,
-                                                                top:
-                                                                16.0),
-                                                            child: Column(
-                                                              crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                              children: <
-                                                                  Widget>[
-                                                                Text(
-                                                                  "Next Prayer",
-                                                                  style: TextStyle(
-                                                                      color: Colors
-                                                                          .white,
-                                                                      fontSize:
-                                                                      12,
-                                                                      fontWeight:
-                                                                      FontWeight.w600),
-                                                                  textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                                ),
-                                                                SizedBox(
-                                                                  height: 5,
-                                                                ),
-                                                                Text(
-                                                                  currentPrayerName,
-                                                                  style: TextStyle(
-                                                                      color: Colors
-                                                                          .white,
-                                                                      fontSize:
-                                                                      25,
-                                                                      fontFamily:
-                                                                      'Helvetica',
-                                                                      fontWeight:
-                                                                      FontWeight.w600),
-                                                                  textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                                ),
+                                                                    SizedBox(
+                                                                      height: 5,
+                                                                    ),
+                                                                    Text(
+                                                                      currentPrayerName,
+                                                                      style: TextStyle(
+                                                                          color: Colors
+                                                                              .white,
+                                                                          fontSize:
+                                                                              25,
+                                                                          fontFamily:
+                                                                              'Helvetica',
+                                                                          fontWeight:
+                                                                              FontWeight.w600),
+                                                                      textAlign:
+                                                                          TextAlign
+                                                                              .center,
+                                                                    ),
 //                                                    (DateTime.now().microsecondsSinceEpoch -
 //                                                                currentPrayer
 //                                                                    .microsecondsSinceEpoch) <
 //                                                            0
 //                                                        ?
-                                                                SizedBox(
-                                                                    width: MediaQuery.of(context)
-                                                                        .size
-                                                                        .width /
-                                                                        2,
-                                                                    child:
-                                                                    Container(
-                                                                      color: Colors
-                                                                          .transparent,
-                                                                      alignment:
-                                                                      Alignment.centerLeft,
-                                                                      child:
-                                                                      Text(
-                                                                        dateString,
-                                                                        style: TextStyle(
-                                                                            color: Colors.white,
-                                                                            fontSize: 40,
-                                                                            fontFamily: 'ProximaNova',
-                                                                            fontWeight: FontWeight.w600),
-                                                                        textAlign:
-                                                                        TextAlign.center,
-                                                                      ),
-                                                                    )),
-                                                              ],
-                                                            ),
-                                                          )
-                                                        ],
+                                                                    SizedBox(
+                                                                        width:
+                                                                            MediaQuery.of(context).size.width /
+                                                                                2,
+                                                                        child:
+                                                                            Container(
+                                                                          color:
+                                                                              Colors.transparent,
+                                                                          alignment:
+                                                                              Alignment.centerLeft,
+                                                                          child:
+                                                                              Text(
+                                                                            dateString,
+                                                                            style: TextStyle(
+                                                                                color: Colors.white,
+                                                                                fontSize: 40,
+                                                                                fontFamily: 'ProximaNova',
+                                                                                fontWeight: FontWeight.w600),
+                                                                            textAlign:
+                                                                                TextAlign.center,
+                                                                          ),
+                                                                        )),
+                                                                  ],
+                                                                ),
+                                                              )
+                                                            ],
+                                                          ),
+                                                        ),
                                                       ),
-                                                    ),
-                                                  ),
-                                           Padding(
-                                                    padding:
-                                                    const EdgeInsets
-                                                        .only(
-                                                        right: 30.0,
-                                                        left: 30.0,
-                                                        top: 30),
-                                                    child: Text(
-                                                      "Prayer Time",
-                                                      style: TextStyle(
-                                                          color: lightBlack,
-                                                          fontSize: 15,
-                                                          fontFamily:
-                                                          'ProximaNova',
-                                                          fontWeight:
-                                                          FontWeight
-                                                              .w600),
-                                                      textAlign: TextAlign
-                                                          .left,
-                                                    ),
-                                                  ),
-                                                  Padding(
-                                                      padding:
-                                                      const EdgeInsets
-                                                          .only(
-                                                          right: 30.0,
-                                                          left: 30,
-                                                          bottom: 10,
-                                                          top: 10),
-                                                      child: Neumorphic(
-                                                        boxShape: NeumorphicBoxShape.roundRect(
-                                                            borderRadius:
-                                                            BorderRadius
-                                                                .circular(
-                                                                6)),
-                                                        style: NeumorphicStyle(
-                                                            shape:
-                                                            NeumorphicShape
-                                                                .flat,
-                                                            depth: 8,
-                                                            intensity: 0.6,
-                                                            lightSource:
-                                                            LightSource
-                                                                .topLeft,
-                                                            color: Colors
-                                                                .white,
-                                                            shadowDarkColor:
-                                                            bluePrayerER,
-                                                            shadowDarkColorEmboss:
-                                                            Colors
-                                                                .white),
-                                                        child: Padding(
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                    .only(
+                                                                right: 30.0,
+                                                                left: 30.0,
+                                                                top: 30),
+                                                        child: Text(
+                                                          "Prayer Time",
+                                                          style: TextStyle(
+                                                              color: lightBlack,
+                                                              fontSize: 15,
+                                                              fontFamily:
+                                                                  'ProximaNova',
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600),
+                                                          textAlign:
+                                                              TextAlign.left,
+                                                        ),
+                                                      ),
+                                                      Padding(
                                                           padding:
-                                                          const EdgeInsets
-                                                              .only(
-                                                              top: 0.0,
-                                                              bottom:
-                                                              8.0),
-                                                          child: Column(
-                                                            children: <
-                                                                Widget>[
-                                                              _buildTableCalendar(),
-                                                              AnimatedBuilder(
-                                                                  animation:
-                                                                  slidePrayerControler,
-                                                                  builder:
-                                                                      (context,
-                                                                      snapshot) {
-                                                                    return FadeTransition(
-                                                                      opacity: Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-                                                                          parent: slidePrayerControler,
-                                                                          curve: Curves.fastOutSlowIn)),
-                                                                      child:
-                                                                      new Transform(
-                                                                        transform: new Matrix4.translationValues(
-                                                                            -30 * (1.0 - Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: slidePrayerControler, curve: Curves.fastOutSlowIn)).value),
-                                                                            0.0,
-                                                                            0.0),
+                                                              const EdgeInsets
+                                                                      .only(
+                                                                  right: 30.0,
+                                                                  left: 30,
+                                                                  bottom: 10,
+                                                                  top: 10),
+                                                          child: Neumorphic(
+                                                            boxShape: NeumorphicBoxShape.roundRect(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            6)),
+                                                            style: NeumorphicStyle(
+                                                                shape:
+                                                                    NeumorphicShape
+                                                                        .flat,
+                                                                depth: 8,
+                                                                intensity: 0.6,
+                                                                lightSource:
+                                                                    LightSource
+                                                                        .topLeft,
+                                                                color: Colors
+                                                                    .white,
+                                                                shadowDarkColor:
+                                                                    bluePrayerER,
+                                                                shadowDarkColorEmboss:
+                                                                    Colors
+                                                                        .white),
+                                                            child: Padding(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                          .only(
+                                                                      top: 0.0,
+                                                                      bottom:
+                                                                          8.0),
+                                                              child: Column(
+                                                                children: <
+                                                                    Widget>[
+                                                                  _buildTableCalendar(),
+                                                                  AnimatedBuilder(
+                                                                      animation:
+                                                                          slidePrayerControler,
+                                                                      builder:
+                                                                          (context,
+                                                                              snapshot) {
+                                                                        return FadeTransition(
+                                                                          opacity: Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
+                                                                              parent: slidePrayerControler,
+                                                                              curve: Curves.fastOutSlowIn)),
+                                                                          child:
+                                                                              new Transform(
+                                                                            transform: new Matrix4.translationValues(
+                                                                                -30 * (1.0 - Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: slidePrayerControler, curve: Curves.fastOutSlowIn)).value),
+                                                                                0.0,
+                                                                                0.0),
 //                                                                             new Matrix4.translationValues(
 //                                                                            30 *
 //                                                                                (1.0 -
@@ -768,3018 +752,393 @@ class _PrayerScreenState extends State<PrayerScreen>
 //                                                                                        .value),
 //                                                                            0.0,
 //                                                                            0.0),
-                                                                        child:
-                                                                        Column(
-                                                                          children: <Widget>[
-                                                                            Container(
-                                                                              padding: EdgeInsets.only(left: 24, top: 10),
-                                                                              alignment: Alignment.centerLeft,
-                                                                              child: Text(
-                                                                                calenderDate.toFormat("dd MMMM yyyy").toString(),
-                                                                                style: TextStyle(color: Colors.black, fontSize: 15, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-                                                                                textAlign: TextAlign.left,
-                                                                              ),
+                                                                            child:
+                                                                                Column(
+                                                                              children: <Widget>[
+                                                                                Container(
+                                                                                  padding: EdgeInsets.only(left: 24, top: 10),
+                                                                                  alignment: Alignment.centerLeft,
+                                                                                  child: Text(
+                                                                                    calenderDate.toFormat("dd MMMM yyyy").toString(),
+                                                                                    style: TextStyle(color: Colors.black, fontSize: 15, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
+                                                                                    textAlign: TextAlign.left,
+                                                                                  ),
+                                                                                ),
+                                                                                Padding(
+                                                                                  padding: const EdgeInsets.only(top: 10.0),
+                                                                                  child: SinglePrayer("Fajr", daySelectedStatus ? fajr : selectedPrayer.fajr, SunsetIcons.sunrise, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 1 : currentPrayerPos == 1 : false, remaingTimeString, 1),
+                                                                                ),
+                                                                                SinglePrayer("Sunrise", daySelectedStatus ? sunrise : selectedPrayer.sunrise, SunsetIcons.sunrise_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 6 : currentPrayerPos == 6 : false, remaingTimeString, 6),
+                                                                                SinglePrayer("Duhar", daySelectedStatus ? duhar : selectedPrayer.dhuhr, SunsetIcons.sun_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 2 : currentPrayerPos == 2 : false, remaingTimeString, 2),
+                                                                                SinglePrayer("Asr", daySelectedStatus ? asr : selectedPrayer.asr, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 3 : currentPrayerPos == 3 : false, remaingTimeString, 3),
+                                                                                SinglePrayer("Magrib", daySelectedStatus ? magrib : selectedPrayer.maghrib, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 4 : currentPrayerPos == 4 : false, remaingTimeString, 4),
+                                                                                SinglePrayer("Ishaa", daySelectedStatus ? isha : selectedPrayer.isha, SunsetIcons.sky_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 5 : currentPrayerPos == 5 : false, remaingTimeString, 5),
+                                                                              ],
                                                                             ),
-                                                                            Padding(
-                                                                              padding: const EdgeInsets.only(top: 10.0),
-                                                                              child: SinglePrayer("Fajr", daySelectedStatus ? fajr : selectedPrayer.fajr, SunsetIcons.sunrise, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 1 : currentPrayerPos == 1 : false, remaingTimeString, 1),
-                                                                            ),
-                                                                            SinglePrayer("Sunrise", daySelectedStatus ? sunrise : selectedPrayer.sunrise, SunsetIcons.sunrise_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 6 : currentPrayerPos == 6 : false, remaingTimeString, 6),
-                                                                            SinglePrayer("Duhar", daySelectedStatus ? duhar : selectedPrayer.dhuhr, SunsetIcons.sun_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 2 : currentPrayerPos == 2 : false, remaingTimeString, 2),
-                                                                            SinglePrayer("Asr", daySelectedStatus ? asr : selectedPrayer.asr, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 3 : currentPrayerPos == 3 : false, remaingTimeString, 3),
-                                                                            SinglePrayer("Magrib", daySelectedStatus ? magrib : selectedPrayer.maghrib, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 4 : currentPrayerPos == 4 : false, remaingTimeString, 4),
-                                                                            SinglePrayer("Ishaa", daySelectedStatus ? isha : selectedPrayer.isha, SunsetIcons.sky_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 5 : currentPrayerPos == 5 : false, remaingTimeString, 5),
-                                                                          ],
-                                                                        ),
-                                                                      ),
-                                                                    );
-                                                                  }),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      )),
-                                                  Padding(
-                                                      padding:
-                                                      const EdgeInsets
-                                                          .only(
-                                                          right: 30.0,
-                                                          left: 30.0,
-                                                          top: 0),
-                                                      child: Container(
-                                                        padding:
-                                                        EdgeInsets.only(
-                                                            top: 8),
-                                                        child: Stack(
-                                                          children: <
-                                                              Widget>[
-                                                            AnimatedContainer(
-                                                              duration: Duration(
-                                                                  milliseconds:
-                                                                  500),
-                                                              height:
-                                                              settingHeight,
-                                                              onEnd: () {
-                                                                settingHeight!=206?
-                                                                _scrollController.animateTo(
-
-                                                                    _scrollController
-                                                                        .position
-                                                                        .minScrollExtent,
-                                                                    duration: Duration(
-                                                                        seconds:
-                                                                        1),
-                                                                    curve: Curves
-                                                                        .ease):_scrollController.animateTo(
-
-                                                                    _scrollController
-                                                                        .position
-                                                                        .maxScrollExtent,
-                                                                    duration: Duration(
-                                                                        seconds:
-                                                                        1),
-                                                                    curve: Curves
-                                                                        .ease);
-                                                              },
-                                                              child:
-                                                              Padding(
-                                                                padding: const EdgeInsets
-                                                                    .only(
-                                                                    top:
-                                                                    20.0),
-                                                                child:
-                                                                Neumorphic(
-                                                                  boxShape: NeumorphicBoxShape.roundRect(
-                                                                      borderRadius:
-                                                                      BorderRadius.circular(6)),
-                                                                  style:
-                                                                  NeumorphicStyle(
-                                                                    shape: NeumorphicShape
-                                                                        .flat,
-                                                                    depth:
-                                                                    8,
-                                                                    intensity:
-                                                                    0.6,
-                                                                    lightSource:
-                                                                    LightSource.topLeft,
-                                                                    color: Colors
-                                                                        .white,
-                                                                    shadowDarkColor:
-                                                                    lightBlack,
-                                                                    shadowDarkColorEmboss:
-                                                                    Colors.white,
-                                                                  ),
+                                                                          ),
+                                                                        );
+                                                                      }),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          )),
+                                                      Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                      .only(
+                                                                  right: 30.0,
+                                                                  left: 30.0,
+                                                                  top: 0),
+                                                          child: Container(
+                                                            padding:
+                                                                EdgeInsets.only(
+                                                                    top: 8),
+                                                            child: Stack(
+                                                              children: <
+                                                                  Widget>[
+                                                                AnimatedContainer(
+                                                                  duration: Duration(
+                                                                      milliseconds:
+                                                                          500),
+                                                                  height:
+                                                                      settingHeight,
+                                                                  onEnd: () {
+                                                                    settingHeight !=
+                                                                            306
+                                                                        ? _scrollController.animateTo(
+                                                                            _scrollController
+                                                                                .position.minScrollExtent,
+                                                                            duration: Duration(
+                                                                                seconds:
+                                                                                    1),
+                                                                            curve: Curves
+                                                                                .ease)
+                                                                        : _scrollController.animateTo(
+                                                                            _scrollController
+                                                                                .position.maxScrollExtent,
+                                                                            duration:
+                                                                                Duration(seconds: 1),
+                                                                            curve: Curves.ease);
+                                                                  },
                                                                   child:
-                                                                  Container(
-                                                                    decoration:
-                                                                    BoxDecoration(
-                                                                      border: Border.all(
-                                                                          color: lightBlack,
-                                                                          width: 1),
-
-                                                                      borderRadius:
-                                                                      BorderRadius.circular(6.0),
-//
-                                                                      color: Colors
-                                                                          .white
-                                                                          .withOpacity(.08),
-                                                                    ),
-                                                                    padding: EdgeInsets.only(
+                                                                      Padding(
+                                                                    padding: const EdgeInsets
+                                                                            .only(
                                                                         top:
-                                                                        20.0,
-                                                                        bottom:
-                                                                        20),
+                                                                            20.0),
                                                                     child:
-                                                                    Center(
+                                                                        Neumorphic(
+                                                                      boxShape: NeumorphicBoxShape.roundRect(
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(6)),
+                                                                      style:
+                                                                          NeumorphicStyle(
+                                                                        shape: NeumorphicShape
+                                                                            .flat,
+                                                                        depth:
+                                                                            8,
+                                                                        intensity:
+                                                                            0.6,
+                                                                        lightSource:
+                                                                            LightSource.topLeft,
+                                                                        color: Colors
+                                                                            .white,
+                                                                        shadowDarkColor:
+                                                                            lightBlack,
+                                                                        shadowDarkColorEmboss:
+                                                                            Colors.white,
+                                                                      ),
                                                                       child:
-                                                                      Column(
-                                                                        mainAxisAlignment:
-                                                                        MainAxisAlignment.spaceEvenly,
-                                                                        children: <Widget>[
-                                                                          Row(
+                                                                          Container(
+                                                                        decoration:
+                                                                            BoxDecoration(
+                                                                          border: Border.all(
+                                                                              color: lightBlack,
+                                                                              width: 1),
+
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(6.0),
+//
+                                                                          color: Colors
+                                                                              .white
+                                                                              .withOpacity(.08),
+                                                                        ),
+                                                                        padding: EdgeInsets.only(
+                                                                            top:
+                                                                                20.0,
+                                                                            bottom:
+                                                                                20),
+                                                                        child:
+                                                                            Center(
+                                                                          child:
+                                                                              Column(
+                                                                            mainAxisAlignment:
+                                                                                MainAxisAlignment.spaceEvenly,
                                                                             children: <Widget>[
-                                                                              Expanded(
-                                                                                flex: 2,
-                                                                                child: Padding(
-                                                                                  padding: const EdgeInsets.only(left: 8.0),
-                                                                                  child: Text(
-                                                                                    "Calculation \nMethord",
-                                                                                    style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-                                                                                    textAlign: TextAlign.left,
-                                                                                  ),
-                                                                                ),
-                                                                              ),
-                                                                              Expanded(
-                                                                                flex: 4,
-                                                                                child: Padding(
-                                                                                    padding: const EdgeInsets.only(right: 5, left: 5),
-                                                                                    child: DropdownButton(
-                                                                                      items: prayerConsts.calculationMethord
-                                                                                          .map((value) => DropdownMenuItem(
-                                                                                        child: Text(
-                                                                                          value.name,
-                                                                                          style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-                                                                                        ),
-                                                                                        value: value,
-                                                                                      ))
-                                                                                          .toList(),
-                                                                                      onChanged: (selectedAccountType) {
-                                                                                        print('$selectedAccountType');
-                                                                                        onMethordChanged(selectedAccountType, 1);
-                                                                                        setState(() {
-                                                                                          selectedcalculationMethord = selectedAccountType;
-                                                                                        });
-                                                                                      },
-                                                                                      isDense: false,
-                                                                                      underline: Container(),
-                                                                                      value: selectedcalculationMethord,
-                                                                                      isExpanded: true,
-                                                                                      hint: Text(
-                                                                                        selectedcalculationMethord.name,
-                                                                                        maxLines: 1,
-                                                                                        style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-                                                                                        softWrap: true,
+                                                                              Row(
+                                                                                children: <Widget>[
+                                                                                  Expanded(
+                                                                                    flex: 2,
+                                                                                    child: Padding(
+                                                                                      padding: const EdgeInsets.only(left: 8.0),
+                                                                                      child: Text(
+                                                                                        "Calculation \nMethord",
+                                                                                        style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
+                                                                                        textAlign: TextAlign.left,
                                                                                       ),
-                                                                                    )),
-                                                                              ),
-                                                                            ],
-                                                                          ),
-                                                                          Row(
-                                                                            children: <Widget>[
-                                                                              Expanded(
-                                                                                flex: 2,
-                                                                                child: Padding(
-                                                                                  padding: const EdgeInsets.only(left: 8.0),
-                                                                                  child: Text(
-                                                                                    "Al-Asr \nJuristic Methord",
-                                                                                    style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-                                                                                    textAlign: TextAlign.left,
+                                                                                    ),
                                                                                   ),
-                                                                                ),
-                                                                              ),
-                                                                              Expanded(
-                                                                                flex: 4,
-                                                                                child: Padding(
-                                                                                    padding: const EdgeInsets.only(right: 5, left: 5),
-                                                                                    child: DropdownButton(
-                                                                                      items: prayerConsts.juristicMethord
-                                                                                          .map((value) => DropdownMenuItem(
-                                                                                        child: Text(
-                                                                                          value.name,
-                                                                                          style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-                                                                                        ),
-                                                                                        value: value,
-                                                                                      ))
-                                                                                          .toList(),
-                                                                                      onChanged: (selectedAccountType) {
-                                                                                        print('$selectedAccountType');
-                                                                                        onMethordChanged(selectedAccountType, 2);
-                                                                                        setState(() {
-                                                                                          selectedjuristicMethord = selectedAccountType;
-                                                                                        });
-                                                                                      },
-                                                                                      isDense: false,
-                                                                                      underline: Container(),
-                                                                                      value: selectedjuristicMethord,
-                                                                                      isExpanded: true,
-                                                                                      hint: Text(
-                                                                                        'Al-Asr Juristic Methord',
-                                                                                        style: TextStyle(color: Color(0xff11b719)),
-                                                                                        maxLines: 1,
-                                                                                        softWrap: true,
-                                                                                      ),
-                                                                                    )),
-                                                                              ),
-                                                                            ],
-                                                                          ),
-                                                                          Row(
-                                                                            children: <Widget>[
-                                                                              Expanded(
-                                                                                flex: 2,
-                                                                                child: Padding(
-                                                                                  padding: const EdgeInsets.only(left: 8.0),
-                                                                                  child: Text(
-                                                                                    "Adjustment for \nHigher Latitude",
-                                                                                    style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-                                                                                    textAlign: TextAlign.left,
-                                                                                  ),
-                                                                                ),
-                                                                              ),
-                                                                              Expanded(
-                                                                                flex: 4,
-                                                                                child: Padding(
-                                                                                    padding: const EdgeInsets.only(right: 5, left: 5),
-                                                                                    child: DropdownButton(
-                                                                                      items: prayerConsts.higherLatitude
-                                                                                          .map((value) => DropdownMenuItem(
-                                                                                        child: Container(
-                                                                                          child: Text(
-                                                                                            value.name,
+                                                                                  Expanded(
+                                                                                    flex: 4,
+                                                                                    child: Padding(
+                                                                                        padding: const EdgeInsets.only(right: 5, left: 5),
+                                                                                        child: DropdownButton(
+                                                                                          items: prayerConsts.calculationMethord
+                                                                                              .map((value) => DropdownMenuItem(
+                                                                                                    child: Text(
+                                                                                                      value.name,
+                                                                                                      style: TextStyle(color: Color(0xff11b719), fontSize: 12),
+                                                                                                    ),
+                                                                                                    value: value,
+                                                                                                  ))
+                                                                                              .toList(),
+                                                                                          onChanged: (selectedAccountType) {
+                                                                                            print('$selectedAccountType');
+                                                                                            onMethordChanged(selectedAccountType, 1);
+                                                                                            setState(() {
+                                                                                              selectedcalculationMethord = selectedAccountType;
+                                                                                            });
+                                                                                          },
+                                                                                          isDense: false,
+                                                                                          underline: Container(),
+                                                                                          value: selectedcalculationMethord,
+                                                                                          isExpanded: true,
+                                                                                          hint: Text(
+                                                                                            selectedcalculationMethord.name,
+                                                                                            maxLines: 1,
                                                                                             style: TextStyle(color: Color(0xff11b719), fontSize: 12),
+                                                                                            softWrap: true,
+                                                                                          ),
+                                                                                        )),
+                                                                                  ),
+                                                                                ],
+                                                                              ),
+                                                                              Row(
+                                                                                children: <Widget>[
+                                                                                  Expanded(
+                                                                                    flex: 2,
+                                                                                    child: Padding(
+                                                                                      padding: const EdgeInsets.only(left: 8.0),
+                                                                                      child: Text(
+                                                                                        "Al-Asr \nJuristic Methord",
+                                                                                        style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
+                                                                                        textAlign: TextAlign.left,
+                                                                                      ),
+                                                                                    ),
+                                                                                  ),
+                                                                                  Expanded(
+                                                                                    flex: 4,
+                                                                                    child: Padding(
+                                                                                        padding: const EdgeInsets.only(right: 5, left: 5),
+                                                                                        child: DropdownButton(
+                                                                                          items: prayerConsts.juristicMethord
+                                                                                              .map((value) => DropdownMenuItem(
+                                                                                                    child: Text(
+                                                                                                      value.name,
+                                                                                                      style: TextStyle(color: Color(0xff11b719), fontSize: 12),
+                                                                                                    ),
+                                                                                                    value: value,
+                                                                                                  ))
+                                                                                              .toList(),
+                                                                                          onChanged: (selectedAccountType) {
+                                                                                            print('$selectedAccountType');
+                                                                                            onMethordChanged(selectedAccountType, 2);
+                                                                                            setState(() {
+                                                                                              selectedjuristicMethord = selectedAccountType;
+                                                                                            });
+                                                                                          },
+                                                                                          isDense: false,
+                                                                                          underline: Container(),
+                                                                                          value: selectedjuristicMethord,
+                                                                                          isExpanded: true,
+                                                                                          hint: Text(
+                                                                                            'Al-Asr Juristic Methord',
+                                                                                            style: TextStyle(color: Color(0xff11b719)),
+                                                                                            maxLines: 1,
+                                                                                            softWrap: true,
+                                                                                          ),
+                                                                                        )),
+                                                                                  ),
+                                                                                ],
+                                                                              ),
+                                                                              Row(
+                                                                                children: <Widget>[
+                                                                                  Expanded(
+                                                                                    flex: 2,
+                                                                                    child: Padding(
+                                                                                      padding: const EdgeInsets.only(left: 8.0),
+                                                                                      child: Text(
+                                                                                        "Adjustment for \nHigher Latitude",
+                                                                                        style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
+                                                                                        textAlign: TextAlign.left,
+                                                                                      ),
+                                                                                    ),
+                                                                                  ),
+                                                                                  Expanded(
+                                                                                    flex: 4,
+                                                                                    child: Padding(
+                                                                                        padding: const EdgeInsets.only(right: 5, left: 5),
+                                                                                        child: DropdownButton(
+                                                                                          items: prayerConsts.higherLatitude
+                                                                                              .map((value) => DropdownMenuItem(
+                                                                                                    child: Container(
+                                                                                                      child: Text(
+                                                                                                        value.name,
+                                                                                                        style: TextStyle(color: Color(0xff11b719), fontSize: 12),
+                                                                                                      ),
+                                                                                                    ),
+                                                                                                    value: value,
+                                                                                                  ))
+                                                                                              .toList(),
+                                                                                          onChanged: (selectedAccountType) {
+                                                                                            print('$selectedAccountType');
+                                                                                            onMethordChanged(selectedAccountType, 3);
+                                                                                            setState(() {
+                                                                                              selectedHigherLatitude = selectedAccountType;
+                                                                                            });
+                                                                                          },
+                                                                                          isDense: false,
+                                                                                          value: selectedHigherLatitude,
+                                                                                          isExpanded: true,
+                                                                                          underline: Container(),
+                                                                                          hint: Text(
+                                                                                            'Adjustment for Higher Latitude',
+                                                                                            style: TextStyle(color: Color(0xff11b719)),
+                                                                                            maxLines: 1,
+                                                                                            softWrap: true,
+                                                                                          ),
+                                                                                        )),
+                                                                                  ),
+                                                                                ],
+                                                                              ),
+                                                                              Row(
+                                                                                children: <Widget>[
+                                                                                  Expanded(
+                                                                                    flex: 2,
+                                                                                    child: Padding(
+                                                                                      padding: const EdgeInsets.only(left: 8.0),
+                                                                                      child: Text(
+                                                                                        "Location",
+                                                                                        style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
+                                                                                        textAlign: TextAlign.left,
+                                                                                      ),
+                                                                                    ),
+                                                                                  ),
+                                                                                  Expanded(
+                                                                                    flex: 4,
+                                                                                    child: Row(
+                                                                                      children: <Widget>[
+                                                                                        Expanded(
+                                                                                          child: Material(
+                                                                                            child: InkWell(
+                                                                                              splashColor: Color(0xff11b719).withOpacity(.2),
+                                                                                              child: Padding(
+                                                                                                child: Text(
+                                                                                                  initialLocation.cityName,
+                                                                                                  style: TextStyle(color: Color(0xff11b719), fontSize: 12),
+                                                                                                ), padding: EdgeInsets.only(top:4.0,bottom: 4,right: 5, left: 5),
+
+                                                                                              ),
+                                                                                              onTap: () {
+                                                                                                _openFilteredCountryPickerDialog(context);
+                                                                                              },
+                                                                                            ),
+                                                                                            color: Colors.transparent,
                                                                                           ),
                                                                                         ),
-                                                                                        value: value,
-                                                                                      ))
-                                                                                          .toList(),
-                                                                                      onChanged: (selectedAccountType) {
-                                                                                        print('$selectedAccountType');
-                                                                                        onMethordChanged(selectedAccountType, 3);
-                                                                                        setState(() {
-                                                                                          selectedHigherLatitude = selectedAccountType;
-                                                                                        });
-                                                                                      },
-                                                                                      isDense: false,
-                                                                                      value: selectedHigherLatitude,
-                                                                                      isExpanded: true,
-                                                                                      underline: Container(),
-                                                                                      hint: Text(
-                                                                                        'Adjustment for Higher Latitude',
-                                                                                        style: TextStyle(color: Color(0xff11b719)),
-                                                                                        maxLines: 1,
-                                                                                        softWrap: true,
-                                                                                      ),
-                                                                                    )),
+                                                                                        Padding(
+                                                                                          padding: const EdgeInsets.only(right:10.0),
+                                                                                          child: Icon(FontAwesomeIcons.searchLocation,size: 15,color: lightBlack,),
+                                                                                        )
+                                                                                      ],
+                                                                                    ),
+                                                                                  ),
+                                                                                ],
                                                                               ),
                                                                             ],
                                                                           ),
-                                                                        ],
+                                                                        ),
                                                                       ),
                                                                     ),
                                                                   ),
                                                                 ),
-                                                              ),
-                                                            ),
-                                                            Container(
-                                                              child:
-                                                              InkWell(
-                                                                child:
                                                                 Container(
-                                                                  decoration:
-                                                                  BoxDecoration(
-                                                                    borderRadius:
-                                                                    BorderRadius.circular(8.0),
-//
-                                                                    color: Colors
-                                                                        .white,
-                                                                  ),
                                                                   child:
-                                                                  ClipRRect(
-                                                                    borderRadius:
-                                                                    BorderRadius.circular(8.0),
-                                                                    child: Container(
-                                                                        height: 35,
-                                                                        width: 35,
-                                                                        child: Icon(
-                                                                          SunsetIcons.settings,
-                                                                          size: 20,
-                                                                        )),
-                                                                  ),
-                                                                ),
-                                                                onTap: () {
-                                                                  print(
-                                                                      "CLICKED");
-                                                                  if (settingHeight ==
-                                                                      0)
-                                                                    settingHeight =
-                                                                    206;
-                                                                  else
-                                                                    settingHeight =
-                                                                    0;
-                                                                  setState(
+                                                                      InkWell(
+                                                                    child:
+                                                                        Container(
+                                                                      decoration:
+                                                                          BoxDecoration(
+                                                                        borderRadius:
+                                                                            BorderRadius.circular(8.0),
+//
+                                                                        color: Colors
+                                                                            .white,
+                                                                      ),
+                                                                      child:
+                                                                          ClipRRect(
+                                                                        borderRadius:
+                                                                            BorderRadius.circular(8.0),
+                                                                        child: Container(
+                                                                            height: 35,
+                                                                            width: 35,
+                                                                            child: Icon(
+                                                                              SunsetIcons.settings,
+                                                                              size: 20,
+                                                                            )),
+                                                                      ),
+                                                                    ),
+                                                                    onTap: () {
+                                                                      print(
+                                                                          "CLICKED");
+                                                                      if (settingHeight ==
+                                                                          0)
+                                                                        settingHeight =
+                                                                            306;
+                                                                      else
+                                                                        settingHeight =
+                                                                            0;
+                                                                      setState(
                                                                           () {});
-                                                                },
-                                                              ),
-                                                              color: Colors
-                                                                  .transparent,
-                                                              padding: EdgeInsets
-                                                                  .only(
-                                                                  right:
-                                                                  5),
-                                                              alignment:
-                                                              Alignment
-                                                                  .topRight,
+                                                                    },
+                                                                  ),
+                                                                  color: Colors
+                                                                      .transparent,
+                                                                  padding: EdgeInsets
+                                                                      .only(
+                                                                          right:
+                                                                              5),
+                                                                  alignment:
+                                                                      Alignment
+                                                                          .topRight,
+                                                                ),
+                                                              ],
+                                                              overflow: Overflow
+                                                                  .visible,
                                                             ),
-                                                          ],
-                                                          overflow: Overflow
-                                                              .visible,
-                                                        ),
-
-                                                      )),
-
-                                                  Container(
-                                                    height: 80,
-                                                  )
-                                                ],
-                                              ),
-                                            );
-//                                          return  SliverList(
-//                                            delegate: SliverChildBuilderDelegate(
-//                                                  (BuildContext context, int index) {
-//
-//                                                if(index==0){
-//
-//
-//                                                  return SliverToBoxAdapter(
-//                                                  child: Padding(
-//                                                    padding:
-//                                                    const EdgeInsets.only(
-//                                                        right: 25,
-//                                                        left: 25),
-//                                                    child: Container(
-//                                                      width: MediaQuery.of(
-//                                                          context)
-//                                                          .size
-//                                                          .width -
-//                                                          50,
-//                                                      decoration: BoxDecoration(
-//                                                          borderRadius:
-//                                                          BorderRadius
-//                                                              .all(Radius
-//                                                              .circular(
-//                                                              10))),
-//                                                      child: Stack(
-//                                                        children: <Widget>[
-//                                                          AnimatedSwitcher(
-//                                                            child:
-//                                                            _prayerWidget,
-//
-////                                                  switchOutCurve: Curves.fastOutSlowIn,
-////                                                  switchInCurve: Curves.fastOutSlowIn,
-//
-////                                                  transitionBuilder:(Widget child,Animation<double> animation){
-////                                                    return FadeTransition(
-////                                                      child: child, opacity: new CurvedAnimation(parent: animationController, curve: Curves.fastOutSlowIn),
-////                                                    );
-////                                                  } ,
-//                                                            duration:
-//                                                            const Duration(
-//                                                                seconds:
-//                                                                2),
-//                                                          ),
-//                                                          Positioned(
-//                                                              bottom: 0,
-//                                                              right: 10,
-//                                                              child: Column(
-//                                                                children: <
-//                                                                    Widget>[
-//                                                                  Row(
-//                                                                    children: <
-//                                                                        Widget>[
-//                                                                      Icon(
-//                                                                        Icons
-//                                                                            .location_on,
-//                                                                        size:
-//                                                                        15,
-//                                                                        color:
-//                                                                        Colors.white,
-//                                                                      ),
-//                                                                      Text(
-//                                                                        "Kannur",
-//                                                                        style: TextStyle(
-//                                                                            color: Colors.white,
-//                                                                            fontSize: 12,
-//                                                                            fontFamily: 'ProximaNova',
-//                                                                            fontWeight: FontWeight.w600),
-//                                                                        textAlign:
-//                                                                        TextAlign.center,
-//                                                                      ),
-//                                                                    ],
-//                                                                  ),
-//                                                                  Padding(
-//                                                                    padding: const EdgeInsets
-//                                                                        .only(
-//                                                                        bottom:
-//                                                                        5.0),
-//                                                                    child:
-//                                                                    Text(
-//                                                                      _today
-//                                                                          .toFormat("dd MMMM yyyy")
-//                                                                          .toString(),
-//                                                                      style: TextStyle(
-//                                                                          color: Colors
-//                                                                              .white,
-//                                                                          fontSize:
-//                                                                          12,
-//                                                                          fontFamily:
-//                                                                          'ProximaNova',
-//                                                                          fontWeight:
-//                                                                          FontWeight.w600),
-//                                                                      textAlign:
-//                                                                      TextAlign.left,
-//                                                                    ),
-//                                                                  ),
-//                                                                ],
-//                                                                crossAxisAlignment:
-//                                                                CrossAxisAlignment
-//                                                                    .start,
-//                                                              )),
-//                                                          Padding(
-//                                                            padding:
-//                                                            const EdgeInsets
-//                                                                .only(
-//                                                                left:
-//                                                                10.0,
-//                                                                top:
-//                                                                16.0),
-//                                                            child: Column(
-//                                                              crossAxisAlignment:
-//                                                              CrossAxisAlignment
-//                                                                  .start,
-//                                                              children: <
-//                                                                  Widget>[
-//                                                                Text(
-//                                                                  "Next Prayer",
-//                                                                  style: TextStyle(
-//                                                                      color: Colors
-//                                                                          .white,
-//                                                                      fontSize:
-//                                                                      12,
-//                                                                      fontWeight:
-//                                                                      FontWeight.w600),
-//                                                                  textAlign:
-//                                                                  TextAlign
-//                                                                      .center,
-//                                                                ),
-//                                                                SizedBox(
-//                                                                  height: 5,
-//                                                                ),
-//                                                                Text(
-//                                                                  currentPrayerName,
-//                                                                  style: TextStyle(
-//                                                                      color: Colors
-//                                                                          .white,
-//                                                                      fontSize:
-//                                                                      25,
-//                                                                      fontFamily:
-//                                                                      'Helvetica',
-//                                                                      fontWeight:
-//                                                                      FontWeight.w600),
-//                                                                  textAlign:
-//                                                                  TextAlign
-//                                                                      .center,
-//                                                                ),
-////                                                    (DateTime.now().microsecondsSinceEpoch -
-////                                                                currentPrayer
-////                                                                    .microsecondsSinceEpoch) <
-////                                                            0
-////                                                        ?
-//                                                                SizedBox(
-//                                                                    width: MediaQuery.of(context)
-//                                                                        .size
-//                                                                        .width /
-//                                                                        2,
-//                                                                    child:
-//                                                                    Container(
-//                                                                      color: Colors
-//                                                                          .transparent,
-//                                                                      alignment:
-//                                                                      Alignment.centerLeft,
-//                                                                      child:
-//                                                                      Text(
-//                                                                        dateString,
-//                                                                        style: TextStyle(
-//                                                                            color: Colors.white,
-//                                                                            fontSize: 40,
-//                                                                            fontFamily: 'ProximaNova',
-//                                                                            fontWeight: FontWeight.w600),
-//                                                                        textAlign:
-//                                                                        TextAlign.center,
-//                                                                      ),
-//                                                                    )),
-//                                                              ],
-//                                                            ),
-//                                                          )
-//                                                        ],
-//                                                      ),
-//                                                    ),
-//                                                  ),
-//                                                );}
-//
-//
-//                                                else if(index==1) {
-//                                                  return SliverToBoxAdapter(
-//                                                      child: Padding(
-//                                                        padding:
-//                                                        const EdgeInsets
-//                                                            .only(
-//                                                            right: 30.0,
-//                                                            left: 30.0,
-//                                                            top: 30),
-//                                                        child: Text(
-//                                                          "Prayer Time",
-//                                                          style: TextStyle(
-//                                                              color: lightBlack,
-//                                                              fontSize: 15,
-//                                                              fontFamily:
-//                                                              'ProximaNova',
-//                                                              fontWeight:
-//                                                              FontWeight
-//                                                                  .w600),
-//                                                          textAlign: TextAlign
-//                                                              .left,
-//                                                        ),
-//                                                      ));
-//
-//                                                }
-//                                                else if(index==2)
-//                                                  return  SliverToBoxAdapter(
-//                                                      child: Padding(
-//                                                          padding:
-//                                                          const EdgeInsets
-//                                                              .only(
-//                                                              right: 30.0,
-//                                                              left: 30,
-//                                                              bottom: 10,
-//                                                              top: 10),
-//                                                          child: Neumorphic(
-//                                                            boxShape: NeumorphicBoxShape.roundRect(
-//                                                                borderRadius:
-//                                                                BorderRadius
-//                                                                    .circular(
-//                                                                    6)),
-//                                                            style: NeumorphicStyle(
-//                                                                shape:
-//                                                                NeumorphicShape
-//                                                                    .flat,
-//                                                                depth: 8,
-//                                                                intensity: 0.6,
-//                                                                lightSource:
-//                                                                LightSource
-//                                                                    .topLeft,
-//                                                                color: Colors
-//                                                                    .white,
-//                                                                shadowDarkColor:
-//                                                                bluePrayerER,
-//                                                                shadowDarkColorEmboss:
-//                                                                Colors
-//                                                                    .white),
-//                                                            child: Padding(
-//                                                              padding:
-//                                                              const EdgeInsets
-//                                                                  .only(
-//                                                                  top: 0.0,
-//                                                                  bottom:
-//                                                                  8.0),
-//                                                              child: Column(
-//                                                                children: <
-//                                                                    Widget>[
-//                                                                  _buildTableCalendar(),
-//                                                                  AnimatedBuilder(
-//                                                                      animation:
-//                                                                      slidePrayerControler,
-//                                                                      builder:
-//                                                                          (context,
-//                                                                          snapshot) {
-//                                                                        return FadeTransition(
-//                                                                          opacity: Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-//                                                                              parent: slidePrayerControler,
-//                                                                              curve: Curves.fastOutSlowIn)),
-//                                                                          child:
-//                                                                          new Transform(
-//                                                                            transform: new Matrix4.translationValues(
-//                                                                                -30 * (1.0 - Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: slidePrayerControler, curve: Curves.fastOutSlowIn)).value),
-//                                                                                0.0,
-//                                                                                0.0),
-////                                                                             new Matrix4.translationValues(
-////                                                                            30 *
-////                                                                                (1.0 -
-////                                                                                    Tween<double>(begin: 0.0, end: 1.0)
-////                                                                                        .animate(CurvedAnimation(
-////                                                                                        parent:
-////                                                                                        dropdownAnimationControler[indexs],
-////                                                                                        curve: Interval(
-////                                                                                            (1 / data.length) * index, 1.0,
-////                                                                                            curve: Curves.fastOutSlowIn)))
-////                                                                                        .value),
-////                                                                            0.0,
-////                                                                            0.0),
-//                                                                            child:
-//                                                                            Column(
-//                                                                              children: <Widget>[
-//                                                                                Container(
-//                                                                                  padding: EdgeInsets.only(left: 24, top: 10),
-//                                                                                  alignment: Alignment.centerLeft,
-//                                                                                  child: Text(
-//                                                                                    calenderDate.toFormat("dd MMMM yyyy").toString(),
-//                                                                                    style: TextStyle(color: Colors.black, fontSize: 15, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                    textAlign: TextAlign.left,
-//                                                                                  ),
-//                                                                                ),
-//                                                                                Padding(
-//                                                                                  padding: const EdgeInsets.only(top: 10.0),
-//                                                                                  child: SinglePrayer("Fajr", daySelectedStatus ? fajr : selectedPrayer.fajr, SunsetIcons.sunrise, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 1 : currentPrayerPos == 1 : false, remaingTimeString, 1),
-//                                                                                ),
-//                                                                                SinglePrayer("Sunrise", daySelectedStatus ? sunrise : selectedPrayer.sunrise, SunsetIcons.sunrise_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 6 : currentPrayerPos == 6 : false, remaingTimeString, 6),
-//                                                                                SinglePrayer("Duhar", daySelectedStatus ? duhar : selectedPrayer.dhuhr, SunsetIcons.sun_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 2 : currentPrayerPos == 2 : false, remaingTimeString, 2),
-//                                                                                SinglePrayer("Asr", daySelectedStatus ? asr : selectedPrayer.asr, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 3 : currentPrayerPos == 3 : false, remaingTimeString, 3),
-//                                                                                SinglePrayer("Magrib", daySelectedStatus ? magrib : selectedPrayer.maghrib, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 4 : currentPrayerPos == 4 : false, remaingTimeString, 4),
-//                                                                                SinglePrayer("Ishaa", daySelectedStatus ? isha : selectedPrayer.isha, SunsetIcons.sky_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 5 : currentPrayerPos == 5 : false, remaingTimeString, 5),
-//                                                                              ],
-//                                                                            ),
-//                                                                          ),
-//                                                                        );
-//                                                                      }),
-//                                                                ],
-//                                                              ),
-//                                                            ),
-//                                                          )));
-//                                                else if(index==3)
-//                                                  return SliverToBoxAdapter(
-//                                                      child: Padding(
-//                                                          padding:
-//                                                          const EdgeInsets
-//                                                              .only(
-//                                                              right: 30.0,
-//                                                              left: 30.0,
-//                                                              top: 0),
-//                                                          child: Container(
-//                                                            padding:
-//                                                            EdgeInsets.only(
-//                                                                top: 8),
-//                                                            child: Stack(
-//                                                              children: <
-//                                                                  Widget>[
-//                                                                AnimatedContainer(
-//                                                                  duration: Duration(
-//                                                                      milliseconds:
-//                                                                      500),
-//                                                                  height:
-//                                                                  settingHeight,
-//                                                                  onEnd: () {
-//                                                                    settingHeight!=206?
-//                                                                    _scrollController.animateTo(
-//
-//                                                                        _scrollController
-//                                                                            .position
-//                                                                            .minScrollExtent,
-//                                                                        duration: Duration(
-//                                                                            seconds:
-//                                                                            1),
-//                                                                        curve: Curves
-//                                                                            .ease):_scrollController.animateTo(
-//
-//                                                                        _scrollController
-//                                                                            .position
-//                                                                            .maxScrollExtent,
-//                                                                        duration: Duration(
-//                                                                            seconds:
-//                                                                            1),
-//                                                                        curve: Curves
-//                                                                            .ease);
-//                                                                  },
-//                                                                  child:
-//                                                                  Padding(
-//                                                                    padding: const EdgeInsets
-//                                                                        .only(
-//                                                                        top:
-//                                                                        20.0),
-//                                                                    child:
-//                                                                    Neumorphic(
-//                                                                      boxShape: NeumorphicBoxShape.roundRect(
-//                                                                          borderRadius:
-//                                                                          BorderRadius.circular(6)),
-//                                                                      style:
-//                                                                      NeumorphicStyle(
-//                                                                        shape: NeumorphicShape
-//                                                                            .flat,
-//                                                                        depth:
-//                                                                        8,
-//                                                                        intensity:
-//                                                                        0.6,
-//                                                                        lightSource:
-//                                                                        LightSource.topLeft,
-//                                                                        color: Colors
-//                                                                            .white,
-//                                                                        shadowDarkColor:
-//                                                                        lightBlack,
-//                                                                        shadowDarkColorEmboss:
-//                                                                        Colors.white,
-//                                                                      ),
-//                                                                      child:
-//                                                                      Container(
-//                                                                        decoration:
-//                                                                        BoxDecoration(
-//                                                                          border: Border.all(
-//                                                                              color: lightBlack,
-//                                                                              width: 1),
-//
-//                                                                          borderRadius:
-//                                                                          BorderRadius.circular(6.0),
-////
-//                                                                          color: Colors
-//                                                                              .white
-//                                                                              .withOpacity(.08),
-//                                                                        ),
-//                                                                        padding: EdgeInsets.only(
-//                                                                            top:
-//                                                                            20.0,
-//                                                                            bottom:
-//                                                                            20),
-//                                                                        child:
-//                                                                        Center(
-//                                                                          child:
-//                                                                          Column(
-//                                                                            mainAxisAlignment:
-//                                                                            MainAxisAlignment.spaceEvenly,
-//                                                                            children: <Widget>[
-//                                                                              Row(
-//                                                                                children: <Widget>[
-//                                                                                  Expanded(
-//                                                                                    flex: 2,
-//                                                                                    child: Padding(
-//                                                                                      padding: const EdgeInsets.only(left: 8.0),
-//                                                                                      child: Text(
-//                                                                                        "Calculation \nMethord",
-//                                                                                        style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                        textAlign: TextAlign.left,
-//                                                                                      ),
-//                                                                                    ),
-//                                                                                  ),
-//                                                                                  Expanded(
-//                                                                                    flex: 4,
-//                                                                                    child: Padding(
-//                                                                                        padding: const EdgeInsets.only(right: 5, left: 5),
-//                                                                                        child: DropdownButton(
-//                                                                                          items: prayerConsts.calculationMethord
-//                                                                                              .map((value) => DropdownMenuItem(
-//                                                                                            child: Text(
-//                                                                                              value.name,
-//                                                                                              style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                            ),
-//                                                                                            value: value,
-//                                                                                          ))
-//                                                                                              .toList(),
-//                                                                                          onChanged: (selectedAccountType) {
-//                                                                                            print('$selectedAccountType');
-//                                                                                            onMethordChanged(selectedAccountType, 1);
-//                                                                                            setState(() {
-//                                                                                              selectedcalculationMethord = selectedAccountType;
-//                                                                                            });
-//                                                                                          },
-//                                                                                          isDense: false,
-//                                                                                          underline: Container(),
-//                                                                                          value: selectedcalculationMethord,
-//                                                                                          isExpanded: true,
-//                                                                                          hint: Text(
-//                                                                                            selectedcalculationMethord.name,
-//                                                                                            maxLines: 1,
-//                                                                                            style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                            softWrap: true,
-//                                                                                          ),
-//                                                                                        )),
-//                                                                                  ),
-//                                                                                ],
-//                                                                              ),
-//                                                                              Row(
-//                                                                                children: <Widget>[
-//                                                                                  Expanded(
-//                                                                                    flex: 2,
-//                                                                                    child: Padding(
-//                                                                                      padding: const EdgeInsets.only(left: 8.0),
-//                                                                                      child: Text(
-//                                                                                        "Al-Asr \nJuristic Methord",
-//                                                                                        style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                        textAlign: TextAlign.left,
-//                                                                                      ),
-//                                                                                    ),
-//                                                                                  ),
-//                                                                                  Expanded(
-//                                                                                    flex: 4,
-//                                                                                    child: Padding(
-//                                                                                        padding: const EdgeInsets.only(right: 5, left: 5),
-//                                                                                        child: DropdownButton(
-//                                                                                          items: prayerConsts.juristicMethord
-//                                                                                              .map((value) => DropdownMenuItem(
-//                                                                                            child: Text(
-//                                                                                              value.name,
-//                                                                                              style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                            ),
-//                                                                                            value: value,
-//                                                                                          ))
-//                                                                                              .toList(),
-//                                                                                          onChanged: (selectedAccountType) {
-//                                                                                            print('$selectedAccountType');
-//                                                                                            onMethordChanged(selectedAccountType, 2);
-//                                                                                            setState(() {
-//                                                                                              selectedjuristicMethord = selectedAccountType;
-//                                                                                            });
-//                                                                                          },
-//                                                                                          isDense: false,
-//                                                                                          underline: Container(),
-//                                                                                          value: selectedjuristicMethord,
-//                                                                                          isExpanded: true,
-//                                                                                          hint: Text(
-//                                                                                            'Al-Asr Juristic Methord',
-//                                                                                            style: TextStyle(color: Color(0xff11b719)),
-//                                                                                            maxLines: 1,
-//                                                                                            softWrap: true,
-//                                                                                          ),
-//                                                                                        )),
-//                                                                                  ),
-//                                                                                ],
-//                                                                              ),
-//                                                                              Row(
-//                                                                                children: <Widget>[
-//                                                                                  Expanded(
-//                                                                                    flex: 2,
-//                                                                                    child: Padding(
-//                                                                                      padding: const EdgeInsets.only(left: 8.0),
-//                                                                                      child: Text(
-//                                                                                        "Adjustment for \nHigher Latitude",
-//                                                                                        style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                        textAlign: TextAlign.left,
-//                                                                                      ),
-//                                                                                    ),
-//                                                                                  ),
-//                                                                                  Expanded(
-//                                                                                    flex: 4,
-//                                                                                    child: Padding(
-//                                                                                        padding: const EdgeInsets.only(right: 5, left: 5),
-//                                                                                        child: DropdownButton(
-//                                                                                          items: prayerConsts.higherLatitude
-//                                                                                              .map((value) => DropdownMenuItem(
-//                                                                                            child: Container(
-//                                                                                              child: Text(
-//                                                                                                value.name,
-//                                                                                                style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                              ),
-//                                                                                            ),
-//                                                                                            value: value,
-//                                                                                          ))
-//                                                                                              .toList(),
-//                                                                                          onChanged: (selectedAccountType) {
-//                                                                                            print('$selectedAccountType');
-//                                                                                            onMethordChanged(selectedAccountType, 3);
-//                                                                                            setState(() {
-//                                                                                              selectedHigherLatitude = selectedAccountType;
-//                                                                                            });
-//                                                                                          },
-//                                                                                          isDense: false,
-//                                                                                          value: selectedHigherLatitude,
-//                                                                                          isExpanded: true,
-//                                                                                          underline: Container(),
-//                                                                                          hint: Text(
-//                                                                                            'Adjustment for Higher Latitude',
-//                                                                                            style: TextStyle(color: Color(0xff11b719)),
-//                                                                                            maxLines: 1,
-//                                                                                            softWrap: true,
-//                                                                                          ),
-//                                                                                        )),
-//                                                                                  ),
-//                                                                                ],
-//                                                                              ),
-//                                                                            ],
-//                                                                          ),
-//                                                                        ),
-//                                                                      ),
-//                                                                    ),
-//                                                                  ),
-//                                                                ),
-//                                                                Container(
-//                                                                  child:
-//                                                                  InkWell(
-//                                                                    child:
-//                                                                    Container(
-//                                                                      decoration:
-//                                                                      BoxDecoration(
-//                                                                        borderRadius:
-//                                                                        BorderRadius.circular(8.0),
-////
-//                                                                        color: Colors
-//                                                                            .white,
-//                                                                      ),
-//                                                                      child:
-//                                                                      ClipRRect(
-//                                                                        borderRadius:
-//                                                                        BorderRadius.circular(8.0),
-//                                                                        child: Container(
-//                                                                            height: 35,
-//                                                                            width: 35,
-//                                                                            child: Icon(
-//                                                                              SunsetIcons.settings,
-//                                                                              size: 20,
-//                                                                            )),
-//                                                                      ),
-//                                                                    ),
-//                                                                    onTap: () {
-//                                                                      print(
-//                                                                          "CLICKED");
-//                                                                      if (settingHeight ==
-//                                                                          0)
-//                                                                        settingHeight =
-//                                                                        206;
-//                                                                      else
-//                                                                        settingHeight =
-//                                                                        0;
-//                                                                      setState(
-//                                                                              () {});
-//                                                                    },
-//                                                                  ),
-//                                                                  color: Colors
-//                                                                      .transparent,
-//                                                                  padding: EdgeInsets
-//                                                                      .only(
-//                                                                      right:
-//                                                                      5),
-//                                                                  alignment:
-//                                                                  Alignment
-//                                                                      .topRight,
-//                                                                ),
-//                                                              ],
-//                                                              overflow: Overflow
-//                                                                  .visible,
-//                                                            ),
-//
-//                                                          )));
-//                                                else if(index==4)
-//                                                  return SliverToBoxAdapter(
-//                                                      child: Container(
-//                                                        height: 80,
-//                                                      ));
-//                                                else
-//                                                  return SliverToBoxAdapter();
-//
-//                                              },
-//                                              childCount: 5,
-//                                            ),
-//                                          );
-
-//                                            return CustomScrollView(
-//                                              physics:
-//                                              AlwaysScrollableScrollPhysics(),
-//                                              slivers: <Widget>[
-//
-//
-//                                                SliverToBoxAdapter(
-//                                                  child: Padding(
-//                                                    padding:
-//                                                    const EdgeInsets.only(
-//                                                        right: 25,
-//                                                        left: 25),
-//                                                    child: Container(
-//                                                      width: MediaQuery.of(
-//                                                          context)
-//                                                          .size
-//                                                          .width -
-//                                                          50,
-//                                                      decoration: BoxDecoration(
-//                                                          borderRadius:
-//                                                          BorderRadius
-//                                                              .all(Radius
-//                                                              .circular(
-//                                                              10))),
-//                                                      child: Stack(
-//                                                        children: <Widget>[
-//                                                          AnimatedSwitcher(
-//                                                            child:
-//                                                            _prayerWidget,
-//
-////                                                  switchOutCurve: Curves.fastOutSlowIn,
-////                                                  switchInCurve: Curves.fastOutSlowIn,
-//
-////                                                  transitionBuilder:(Widget child,Animation<double> animation){
-////                                                    return FadeTransition(
-////                                                      child: child, opacity: new CurvedAnimation(parent: animationController, curve: Curves.fastOutSlowIn),
-////                                                    );
-////                                                  } ,
-//                                                            duration:
-//                                                            const Duration(
-//                                                                seconds:
-//                                                                2),
-//                                                          ),
-//                                                          Positioned(
-//                                                              bottom: 0,
-//                                                              right: 10,
-//                                                              child: Column(
-//                                                                children: <
-//                                                                    Widget>[
-//                                                                  Row(
-//                                                                    children: <
-//                                                                        Widget>[
-//                                                                      Icon(
-//                                                                        Icons
-//                                                                            .location_on,
-//                                                                        size:
-//                                                                        15,
-//                                                                        color:
-//                                                                        Colors.white,
-//                                                                      ),
-//                                                                      Text(
-//                                                                        "Kannur",
-//                                                                        style: TextStyle(
-//                                                                            color: Colors.white,
-//                                                                            fontSize: 12,
-//                                                                            fontFamily: 'ProximaNova',
-//                                                                            fontWeight: FontWeight.w600),
-//                                                                        textAlign:
-//                                                                        TextAlign.center,
-//                                                                      ),
-//                                                                    ],
-//                                                                  ),
-//                                                                  Padding(
-//                                                                    padding: const EdgeInsets
-//                                                                        .only(
-//                                                                        bottom:
-//                                                                        5.0),
-//                                                                    child:
-//                                                                    Text(
-//                                                                      _today
-//                                                                          .toFormat("dd MMMM yyyy")
-//                                                                          .toString(),
-//                                                                      style: TextStyle(
-//                                                                          color: Colors
-//                                                                              .white,
-//                                                                          fontSize:
-//                                                                          12,
-//                                                                          fontFamily:
-//                                                                          'ProximaNova',
-//                                                                          fontWeight:
-//                                                                          FontWeight.w600),
-//                                                                      textAlign:
-//                                                                      TextAlign.left,
-//                                                                    ),
-//                                                                  ),
-//                                                                ],
-//                                                                crossAxisAlignment:
-//                                                                CrossAxisAlignment
-//                                                                    .start,
-//                                                              )),
-//                                                          Padding(
-//                                                            padding:
-//                                                            const EdgeInsets
-//                                                                .only(
-//                                                                left:
-//                                                                10.0,
-//                                                                top:
-//                                                                16.0),
-//                                                            child: Column(
-//                                                              crossAxisAlignment:
-//                                                              CrossAxisAlignment
-//                                                                  .start,
-//                                                              children: <
-//                                                                  Widget>[
-//                                                                Text(
-//                                                                  "Next Prayer",
-//                                                                  style: TextStyle(
-//                                                                      color: Colors
-//                                                                          .white,
-//                                                                      fontSize:
-//                                                                      12,
-//                                                                      fontWeight:
-//                                                                      FontWeight.w600),
-//                                                                  textAlign:
-//                                                                  TextAlign
-//                                                                      .center,
-//                                                                ),
-//                                                                SizedBox(
-//                                                                  height: 5,
-//                                                                ),
-//                                                                Text(
-//                                                                  currentPrayerName,
-//                                                                  style: TextStyle(
-//                                                                      color: Colors
-//                                                                          .white,
-//                                                                      fontSize:
-//                                                                      25,
-//                                                                      fontFamily:
-//                                                                      'Helvetica',
-//                                                                      fontWeight:
-//                                                                      FontWeight.w600),
-//                                                                  textAlign:
-//                                                                  TextAlign
-//                                                                      .center,
-//                                                                ),
-////                                                    (DateTime.now().microsecondsSinceEpoch -
-////                                                                currentPrayer
-////                                                                    .microsecondsSinceEpoch) <
-////                                                            0
-////                                                        ?
-//                                                                SizedBox(
-//                                                                    width: MediaQuery.of(context)
-//                                                                        .size
-//                                                                        .width /
-//                                                                        2,
-//                                                                    child:
-//                                                                    Container(
-//                                                                      color: Colors
-//                                                                          .transparent,
-//                                                                      alignment:
-//                                                                      Alignment.centerLeft,
-//                                                                      child:
-//                                                                      Text(
-//                                                                        dateString,
-//                                                                        style: TextStyle(
-//                                                                            color: Colors.white,
-//                                                                            fontSize: 40,
-//                                                                            fontFamily: 'ProximaNova',
-//                                                                            fontWeight: FontWeight.w600),
-//                                                                        textAlign:
-//                                                                        TextAlign.center,
-//                                                                      ),
-//                                                                    )),
-//                                                              ],
-//                                                            ),
-//                                                          )
-//                                                        ],
-//                                                      ),
-//                                                    ),
-//                                                  ),
-//                                                ),
-//
-//                                                SliverToBoxAdapter(
-//                                                    child: Padding(
-//                                                      padding:
-//                                                      const EdgeInsets.only(
-//                                                          right: 30.0,
-//                                                          left: 30.0,
-//                                                          top: 30),
-//                                                      child: Text(
-//                                                        "Prayer Time",
-//                                                        style: TextStyle(
-//                                                            color: lightBlack,
-//                                                            fontSize: 15,
-//                                                            fontFamily:
-//                                                            'ProximaNova',
-//                                                            fontWeight:
-//                                                            FontWeight.w600),
-//                                                        textAlign: TextAlign.left,
-//                                                      ),
-//                                                    )),
-//                                                SliverToBoxAdapter(
-//                                                    child: Padding(
-//                                                        padding:
-//                                                        const EdgeInsets
-//                                                            .only(
-//                                                            right: 30.0,
-//                                                            left: 30,
-//                                                            bottom: 10,
-//                                                            top: 10),
-//                                                        child: Neumorphic(
-//                                                          boxShape: NeumorphicBoxShape.roundRect(
-//                                                              borderRadius:
-//                                                              BorderRadius
-//                                                                  .circular(
-//                                                                  6)),
-//                                                          style: NeumorphicStyle(
-//                                                              shape:
-//                                                              NeumorphicShape
-//                                                                  .flat,
-//                                                              depth: 8,
-//                                                              intensity: 0.6,
-//                                                              lightSource:
-//                                                              LightSource
-//                                                                  .topLeft,
-//                                                              color: Colors
-//                                                                  .white,
-//                                                              shadowDarkColor:
-//                                                              bluePrayerER,
-//                                                              shadowDarkColorEmboss:
-//                                                              Colors
-//                                                                  .white),
-//                                                          child: Padding(
-//                                                            padding:
-//                                                            const EdgeInsets
-//                                                                .only(
-//                                                                top: 0.0,
-//                                                                bottom:
-//                                                                8.0),
-//                                                            child: Column(
-//                                                              children: <
-//                                                                  Widget>[
-//                                                                _buildTableCalendar(),
-//                                                                AnimatedBuilder(
-//                                                                    animation:
-//                                                                    slidePrayerControler,
-//                                                                    builder:
-//                                                                        (context,
-//                                                                        snapshot) {
-//                                                                      return FadeTransition(
-//                                                                        opacity: Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-//                                                                            parent: slidePrayerControler,
-//                                                                            curve: Curves.fastOutSlowIn)),
-//                                                                        child:
-//                                                                        new Transform(
-//                                                                          transform: new Matrix4.translationValues(
-//                                                                              -30 * (1.0 - Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: slidePrayerControler, curve: Curves.fastOutSlowIn)).value),
-//                                                                              0.0,
-//                                                                              0.0),
-////                                                                             new Matrix4.translationValues(
-////                                                                            30 *
-////                                                                                (1.0 -
-////                                                                                    Tween<double>(begin: 0.0, end: 1.0)
-////                                                                                        .animate(CurvedAnimation(
-////                                                                                        parent:
-////                                                                                        dropdownAnimationControler[indexs],
-////                                                                                        curve: Interval(
-////                                                                                            (1 / data.length) * index, 1.0,
-////                                                                                            curve: Curves.fastOutSlowIn)))
-////                                                                                        .value),
-////                                                                            0.0,
-////                                                                            0.0),
-//                                                                          child:
-//                                                                          Column(
-//                                                                            children: <Widget>[
-//                                                                              Container(
-//                                                                                padding: EdgeInsets.only(left: 24, top: 10),
-//                                                                                alignment: Alignment.centerLeft,
-//                                                                                child: Text(
-//                                                                                  calenderDate.toFormat("dd MMMM yyyy").toString(),
-//                                                                                  style: TextStyle(color: Colors.black, fontSize: 15, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                  textAlign: TextAlign.left,
-//                                                                                ),
-//                                                                              ),
-//                                                                              Padding(
-//                                                                                padding: const EdgeInsets.only(top: 10.0),
-//                                                                                child: SinglePrayer("Fajr", daySelectedStatus ? fajr : selectedPrayer.fajr, SunsetIcons.sunrise, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 1 : currentPrayerPos == 1 : false, remaingTimeString, 1),
-//                                                                              ),
-//                                                                              SinglePrayer("Sunrise", daySelectedStatus ? sunrise : selectedPrayer.sunrise, SunsetIcons.sunrise_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 6 : currentPrayerPos == 6 : false, remaingTimeString, 6),
-//                                                                              SinglePrayer("Duhar", daySelectedStatus ? duhar : selectedPrayer.dhuhr, SunsetIcons.sun_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 2 : currentPrayerPos == 2 : false, remaingTimeString, 2),
-//                                                                              SinglePrayer("Asr", daySelectedStatus ? asr : selectedPrayer.asr, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 3 : currentPrayerPos == 3 : false, remaingTimeString, 3),
-//                                                                              SinglePrayer("Magrib", daySelectedStatus ? magrib : selectedPrayer.maghrib, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 4 : currentPrayerPos == 4 : false, remaingTimeString, 4),
-//                                                                              SinglePrayer("Ishaa", daySelectedStatus ? isha : selectedPrayer.isha, SunsetIcons.sky_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 5 : currentPrayerPos == 5 : false, remaingTimeString, 5),
-//                                                                            ],
-//                                                                          ),
-//                                                                        ),
-//                                                                      );
-//                                                                    }),
-//                                                              ],
-//                                                            ),
-//                                                          ),
-//                                                        ))),
-//
-//                                                SliverToBoxAdapter(
-//                                                    child: Padding(
-//                                                        padding:
-//                                                        const EdgeInsets
-//                                                            .only(
-//                                                            right: 30.0,
-//                                                            left: 30.0,
-//                                                            top: 0),
-//                                                        child: Container(
-//                                                          padding:
-//                                                          EdgeInsets.only(
-//                                                              top: 8),
-//                                                          child: Stack(
-//                                                            children: <
-//                                                                Widget>[
-//                                                              AnimatedContainer(
-//                                                                duration: Duration(
-//                                                                    milliseconds:
-//                                                                    500),
-//                                                                height:
-//                                                                settingHeight,
-//                                                                onEnd: () {
-//                                                                  settingHeight!=206?
-//                                                                  _scrollController.animateTo(
-//
-//                                                                      _scrollController
-//                                                                          .position
-//                                                                          .minScrollExtent,
-//                                                                      duration: Duration(
-//                                                                          seconds:
-//                                                                          1),
-//                                                                      curve: Curves
-//                                                                          .ease):_scrollController.animateTo(
-//
-//                                                                      _scrollController
-//                                                                          .position
-//                                                                          .maxScrollExtent,
-//                                                                      duration: Duration(
-//                                                                          seconds:
-//                                                                          1),
-//                                                                      curve: Curves
-//                                                                          .ease);
-//                                                                },
-//                                                                child:
-//                                                                Padding(
-//                                                                  padding: const EdgeInsets
-//                                                                      .only(
-//                                                                      top:
-//                                                                      20.0),
-//                                                                  child:
-//                                                                  Neumorphic(
-//                                                                    boxShape: NeumorphicBoxShape.roundRect(
-//                                                                        borderRadius:
-//                                                                        BorderRadius.circular(6)),
-//                                                                    style:
-//                                                                    NeumorphicStyle(
-//                                                                      shape: NeumorphicShape
-//                                                                          .flat,
-//                                                                      depth:
-//                                                                      8,
-//                                                                      intensity:
-//                                                                      0.6,
-//                                                                      lightSource:
-//                                                                      LightSource.topLeft,
-//                                                                      color: Colors
-//                                                                          .white,
-//                                                                      shadowDarkColor:
-//                                                                      lightBlack,
-//                                                                      shadowDarkColorEmboss:
-//                                                                      Colors.white,
-//                                                                    ),
-//                                                                    child:
-//                                                                    Container(
-//                                                                      decoration:
-//                                                                      BoxDecoration(
-//                                                                        border: Border.all(
-//                                                                            color: lightBlack,
-//                                                                            width: 1),
-//
-//                                                                        borderRadius:
-//                                                                        BorderRadius.circular(6.0),
-////
-//                                                                        color: Colors
-//                                                                            .white
-//                                                                            .withOpacity(.08),
-//                                                                      ),
-//                                                                      padding: EdgeInsets.only(
-//                                                                          top:
-//                                                                          20.0,
-//                                                                          bottom:
-//                                                                          20),
-//                                                                      child:
-//                                                                      Center(
-//                                                                        child:
-//                                                                        Column(
-//                                                                          mainAxisAlignment:
-//                                                                          MainAxisAlignment.spaceEvenly,
-//                                                                          children: <Widget>[
-//                                                                            Row(
-//                                                                              children: <Widget>[
-//                                                                                Expanded(
-//                                                                                  flex: 2,
-//                                                                                  child: Padding(
-//                                                                                    padding: const EdgeInsets.only(left: 8.0),
-//                                                                                    child: Text(
-//                                                                                      "Calculation \nMethord",
-//                                                                                      style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                      textAlign: TextAlign.left,
-//                                                                                    ),
-//                                                                                  ),
-//                                                                                ),
-//                                                                                Expanded(
-//                                                                                  flex: 4,
-//                                                                                  child: Padding(
-//                                                                                      padding: const EdgeInsets.only(right: 5, left: 5),
-//                                                                                      child: DropdownButton(
-//                                                                                        items: prayerConsts.calculationMethord
-//                                                                                            .map((value) => DropdownMenuItem(
-//                                                                                          child: Text(
-//                                                                                            value.name,
-//                                                                                            style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                          ),
-//                                                                                          value: value,
-//                                                                                        ))
-//                                                                                            .toList(),
-//                                                                                        onChanged: (selectedAccountType) {
-//                                                                                          print('$selectedAccountType');
-//                                                                                          onMethordChanged(selectedAccountType, 1);
-//                                                                                          setState(() {
-//                                                                                            selectedcalculationMethord = selectedAccountType;
-//                                                                                          });
-//                                                                                        },
-//                                                                                        isDense: false,
-//                                                                                        underline: Container(),
-//                                                                                        value: selectedcalculationMethord,
-//                                                                                        isExpanded: true,
-//                                                                                        hint: Text(
-//                                                                                          selectedcalculationMethord.name,
-//                                                                                          maxLines: 1,
-//                                                                                          style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                          softWrap: true,
-//                                                                                        ),
-//                                                                                      )),
-//                                                                                ),
-//                                                                              ],
-//                                                                            ),
-//                                                                            Row(
-//                                                                              children: <Widget>[
-//                                                                                Expanded(
-//                                                                                  flex: 2,
-//                                                                                  child: Padding(
-//                                                                                    padding: const EdgeInsets.only(left: 8.0),
-//                                                                                    child: Text(
-//                                                                                      "Al-Asr \nJuristic Methord",
-//                                                                                      style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                      textAlign: TextAlign.left,
-//                                                                                    ),
-//                                                                                  ),
-//                                                                                ),
-//                                                                                Expanded(
-//                                                                                  flex: 4,
-//                                                                                  child: Padding(
-//                                                                                      padding: const EdgeInsets.only(right: 5, left: 5),
-//                                                                                      child: DropdownButton(
-//                                                                                        items: prayerConsts.juristicMethord
-//                                                                                            .map((value) => DropdownMenuItem(
-//                                                                                          child: Text(
-//                                                                                            value.name,
-//                                                                                            style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                          ),
-//                                                                                          value: value,
-//                                                                                        ))
-//                                                                                            .toList(),
-//                                                                                        onChanged: (selectedAccountType) {
-//                                                                                          print('$selectedAccountType');
-//                                                                                          onMethordChanged(selectedAccountType, 2);
-//                                                                                          setState(() {
-//                                                                                            selectedjuristicMethord = selectedAccountType;
-//                                                                                          });
-//                                                                                        },
-//                                                                                        isDense: false,
-//                                                                                        underline: Container(),
-//                                                                                        value: selectedjuristicMethord,
-//                                                                                        isExpanded: true,
-//                                                                                        hint: Text(
-//                                                                                          'Al-Asr Juristic Methord',
-//                                                                                          style: TextStyle(color: Color(0xff11b719)),
-//                                                                                          maxLines: 1,
-//                                                                                          softWrap: true,
-//                                                                                        ),
-//                                                                                      )),
-//                                                                                ),
-//                                                                              ],
-//                                                                            ),
-//                                                                            Row(
-//                                                                              children: <Widget>[
-//                                                                                Expanded(
-//                                                                                  flex: 2,
-//                                                                                  child: Padding(
-//                                                                                    padding: const EdgeInsets.only(left: 8.0),
-//                                                                                    child: Text(
-//                                                                                      "Adjustment for \nHigher Latitude",
-//                                                                                      style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                      textAlign: TextAlign.left,
-//                                                                                    ),
-//                                                                                  ),
-//                                                                                ),
-//                                                                                Expanded(
-//                                                                                  flex: 4,
-//                                                                                  child: Padding(
-//                                                                                      padding: const EdgeInsets.only(right: 5, left: 5),
-//                                                                                      child: DropdownButton(
-//                                                                                        items: prayerConsts.higherLatitude
-//                                                                                            .map((value) => DropdownMenuItem(
-//                                                                                          child: Container(
-//                                                                                            child: Text(
-//                                                                                              value.name,
-//                                                                                              style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                            ),
-//                                                                                          ),
-//                                                                                          value: value,
-//                                                                                        ))
-//                                                                                            .toList(),
-//                                                                                        onChanged: (selectedAccountType) {
-//                                                                                          print('$selectedAccountType');
-//                                                                                          onMethordChanged(selectedAccountType, 3);
-//                                                                                          setState(() {
-//                                                                                            selectedHigherLatitude = selectedAccountType;
-//                                                                                          });
-//                                                                                        },
-//                                                                                        isDense: false,
-//                                                                                        value: selectedHigherLatitude,
-//                                                                                        isExpanded: true,
-//                                                                                        underline: Container(),
-//                                                                                        hint: Text(
-//                                                                                          'Adjustment for Higher Latitude',
-//                                                                                          style: TextStyle(color: Color(0xff11b719)),
-//                                                                                          maxLines: 1,
-//                                                                                          softWrap: true,
-//                                                                                        ),
-//                                                                                      )),
-//                                                                                ),
-//                                                                              ],
-//                                                                            ),
-//                                                                          ],
-//                                                                        ),
-//                                                                      ),
-//                                                                    ),
-//                                                                  ),
-//                                                                ),
-//                                                              ),
-//                                                              Container(
-//                                                                child:
-//                                                                InkWell(
-//                                                                  child:
-//                                                                  Container(
-//                                                                    decoration:
-//                                                                    BoxDecoration(
-//                                                                      borderRadius:
-//                                                                      BorderRadius.circular(8.0),
-////
-//                                                                      color: Colors
-//                                                                          .white,
-//                                                                    ),
-//                                                                    child:
-//                                                                    ClipRRect(
-//                                                                      borderRadius:
-//                                                                      BorderRadius.circular(8.0),
-//                                                                      child: Container(
-//                                                                          height: 35,
-//                                                                          width: 35,
-//                                                                          child: Icon(
-//                                                                            SunsetIcons.settings,
-//                                                                            size: 20,
-//                                                                          )),
-//                                                                    ),
-//                                                                  ),
-//                                                                  onTap: () {
-//                                                                    print(
-//                                                                        "CLICKED");
-//                                                                    if (settingHeight ==
-//                                                                        0)
-//                                                                      settingHeight =
-//                                                                      206;
-//                                                                    else
-//                                                                      settingHeight =
-//                                                                      0;
-//                                                                    setState(
-//                                                                            () {});
-//                                                                  },
-//                                                                ),
-//                                                                color: Colors
-//                                                                    .transparent,
-//                                                                padding: EdgeInsets
-//                                                                    .only(
-//                                                                    right:
-//                                                                    5),
-//                                                                alignment:
-//                                                                Alignment
-//                                                                    .topRight,
-//                                                              ),
-//                                                            ],
-//                                                            overflow: Overflow
-//                                                                .visible,
-//                                                          ),
-////      child: ListCard(
-////        image:
-////        "https://res.cloudinary.com/halva/image/upload/v1588908206/adkhar/20190504_ryuaxg.jpg",
-////        title: subSection.name,
-////        date: "",
-////        inverted: index % 2 == 0 ? false : true,
-////        prevColor: Colors.white,
-////        palletcolor: pallete,
-////      ),
-//                                                        ))),
-//
-//                                                SliverToBoxAdapter(
-//                                                    child: Container(
-//                                                      height: 80,
-//                                                    ))
-//                                              ],
-//                                            );
-                                        }),
-                                         ),
-                                  ],
-                                ),
+                                                          )),
+                                                      Container(
+                                                        height: 80,
+                                                      )
+                                                    ],
+                                                  );
+                                                }),
+                                          ),
+                                        ],
+                                      ),
                               ),
-
-SliverToBoxAdapter(child: Container(
-  height: 80,
-),)
-
-
-//                              SliverFillRemaining(
-//                                child: Column(
-//                                  children: <Widget>[
-//                                    Expanded(
-//                                      child: currentPrayer == null
-//                                          ? Container()
-//                                          : StreamBuilder(
-//                                          stream: Stream.periodic(
-//                                              Duration(seconds: 1), (i) => i),
-//                                          builder: (BuildContext context,
-//                                              AsyncSnapshot<int> snapshot) {
-//                                            DateFormat format =
-//                                            DateFormat("mm:ss");
-////                                                                      int now =
-////                                                                          DateTime.now().millisecondsSinceEpoch;
-//////
-//
-//                                            var now = new DateTime.now();
-//
-//                                            var date = new DateTime
-//                                                .fromMicrosecondsSinceEpoch(
-//                                                currentPrayer
-//                                                    .millisecondsSinceEpoch *
-//                                                    1000);
-//                                            var diff = date.difference(now);
-//
-////
-//
-//                                            // for prayer after the time
-////                                                              Duration
-////                                                                  remaining =
-////                                                                  Duration(
-////                                                                      milliseconds:
-////                                                                          now -
-////                                                                              duhar.millisecondsSinceEpoch);
-//
-//                                            // for prayer befor the time
-////                                                                      Duration
-////                                                                          remaining =
-////                                                                          Duration(
-////                                                                              milliseconds: (now-prayer));
-////
-////                                                                      print(DateTime.fromMillisecondsSinceEpoch(remaining.inMilliseconds));
-//
-//                                            var dateString = "";
-//
-//                                            var remaingTimeString =
-//                                                diff.inMinutes;
-//                                            if ((DateTime.now()
-//                                                .microsecondsSinceEpoch -
-//                                                currentPrayer
-//                                                    .microsecondsSinceEpoch) <
-//                                                0) {
-//                                              if (diff.inHours == 0) {
-//                                                dateString =
-//                                                '- ${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
-//                                              } else {
-//                                                dateString =
-//                                                '- ${diff.inHours}:${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
-//                                              }
-//                                            } else {
-//                                              var diff = now.difference(date);
-//
-//                                              if (diff.inHours == 0) {
-//                                                dateString =
-//                                                '+ ${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
-//                                              } else {
-//                                                dateString =
-//                                                '+ ${diff.inHours}:${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(diff.inSeconds.remainder(60).toString().padLeft(2, '0'))}';
-//                                              }
-//                                            }
-////                                          print(dateString);
-//                                            var _today =
-//                                            new ummAlquraCalendar.now();
-//
-//                                            print(_today
-//                                                .toFormat("dd MMMM yyyy"));
-//                                            return  SliverList(
-//                                              delegate: SliverChildBuilderDelegate(
-//                                                    (BuildContext context, int index) {
-//
-//                                                        if(index==1){return SliverToBoxAdapter(
-//                                                          child: Padding(
-//                                                            padding:
-//                                                            const EdgeInsets.only(
-//                                                                right: 25,
-//                                                                left: 25),
-//                                                            child: Container(
-//                                                              width: MediaQuery.of(
-//                                                                  context)
-//                                                                  .size
-//                                                                  .width -
-//                                                                  50,
-//                                                              decoration: BoxDecoration(
-//                                                                  borderRadius:
-//                                                                  BorderRadius
-//                                                                      .all(Radius
-//                                                                      .circular(
-//                                                                      10))),
-//                                                              child: Stack(
-//                                                                children: <Widget>[
-//                                                                  AnimatedSwitcher(
-//                                                                    child:
-//                                                                    _prayerWidget,
-//
-////                                                  switchOutCurve: Curves.fastOutSlowIn,
-////                                                  switchInCurve: Curves.fastOutSlowIn,
-//
-////                                                  transitionBuilder:(Widget child,Animation<double> animation){
-////                                                    return FadeTransition(
-////                                                      child: child, opacity: new CurvedAnimation(parent: animationController, curve: Curves.fastOutSlowIn),
-////                                                    );
-////                                                  } ,
-//                                                                    duration:
-//                                                                    const Duration(
-//                                                                        seconds:
-//                                                                        2),
-//                                                                  ),
-//                                                                  Positioned(
-//                                                                      bottom: 0,
-//                                                                      right: 10,
-//                                                                      child: Column(
-//                                                                        children: <
-//                                                                            Widget>[
-//                                                                          Row(
-//                                                                            children: <
-//                                                                                Widget>[
-//                                                                              Icon(
-//                                                                                Icons
-//                                                                                    .location_on,
-//                                                                                size:
-//                                                                                15,
-//                                                                                color:
-//                                                                                Colors.white,
-//                                                                              ),
-//                                                                              Text(
-//                                                                                "Kannur",
-//                                                                                style: TextStyle(
-//                                                                                    color: Colors.white,
-//                                                                                    fontSize: 12,
-//                                                                                    fontFamily: 'ProximaNova',
-//                                                                                    fontWeight: FontWeight.w600),
-//                                                                                textAlign:
-//                                                                                TextAlign.center,
-//                                                                              ),
-//                                                                            ],
-//                                                                          ),
-//                                                                          Padding(
-//                                                                            padding: const EdgeInsets
-//                                                                                .only(
-//                                                                                bottom:
-//                                                                                5.0),
-//                                                                            child:
-//                                                                            Text(
-//                                                                              _today
-//                                                                                  .toFormat("dd MMMM yyyy")
-//                                                                                  .toString(),
-//                                                                              style: TextStyle(
-//                                                                                  color: Colors
-//                                                                                      .white,
-//                                                                                  fontSize:
-//                                                                                  12,
-//                                                                                  fontFamily:
-//                                                                                  'ProximaNova',
-//                                                                                  fontWeight:
-//                                                                                  FontWeight.w600),
-//                                                                              textAlign:
-//                                                                              TextAlign.left,
-//                                                                            ),
-//                                                                          ),
-//                                                                        ],
-//                                                                        crossAxisAlignment:
-//                                                                        CrossAxisAlignment
-//                                                                            .start,
-//                                                                      )),
-//                                                                  Padding(
-//                                                                    padding:
-//                                                                    const EdgeInsets
-//                                                                        .only(
-//                                                                        left:
-//                                                                        10.0,
-//                                                                        top:
-//                                                                        16.0),
-//                                                                    child: Column(
-//                                                                      crossAxisAlignment:
-//                                                                      CrossAxisAlignment
-//                                                                          .start,
-//                                                                      children: <
-//                                                                          Widget>[
-//                                                                        Text(
-//                                                                          "Next Prayer",
-//                                                                          style: TextStyle(
-//                                                                              color: Colors
-//                                                                                  .white,
-//                                                                              fontSize:
-//                                                                              12,
-//                                                                              fontWeight:
-//                                                                              FontWeight.w600),
-//                                                                          textAlign:
-//                                                                          TextAlign
-//                                                                              .center,
-//                                                                        ),
-//                                                                        SizedBox(
-//                                                                          height: 5,
-//                                                                        ),
-//                                                                        Text(
-//                                                                          currentPrayerName,
-//                                                                          style: TextStyle(
-//                                                                              color: Colors
-//                                                                                  .white,
-//                                                                              fontSize:
-//                                                                              25,
-//                                                                              fontFamily:
-//                                                                              'Helvetica',
-//                                                                              fontWeight:
-//                                                                              FontWeight.w600),
-//                                                                          textAlign:
-//                                                                          TextAlign
-//                                                                              .center,
-//                                                                        ),
-////                                                    (DateTime.now().microsecondsSinceEpoch -
-////                                                                currentPrayer
-////                                                                    .microsecondsSinceEpoch) <
-////                                                            0
-////                                                        ?
-//                                                                        SizedBox(
-//                                                                            width: MediaQuery.of(context)
-//                                                                                .size
-//                                                                                .width /
-//                                                                                2,
-//                                                                            child:
-//                                                                            Container(
-//                                                                              color: Colors
-//                                                                                  .transparent,
-//                                                                              alignment:
-//                                                                              Alignment.centerLeft,
-//                                                                              child:
-//                                                                              Text(
-//                                                                                dateString,
-//                                                                                style: TextStyle(
-//                                                                                    color: Colors.white,
-//                                                                                    fontSize: 40,
-//                                                                                    fontFamily: 'ProximaNova',
-//                                                                                    fontWeight: FontWeight.w600),
-//                                                                                textAlign:
-//                                                                                TextAlign.center,
-//                                                                              ),
-//                                                                            )),
-//                                                                      ],
-//                                                                    ),
-//                                                                  )
-//                                                                ],
-//                                                              ),
-//                                                            ),
-//                                                          ),
-//                                                        );}
-//
-//
-//                                                        else if(index==1) {
-//                                                          return SliverToBoxAdapter(
-//                                                              child: Padding(
-//                                                                padding:
-//                                                                const EdgeInsets
-//                                                                    .only(
-//                                                                    right: 30.0,
-//                                                                    left: 30.0,
-//                                                                    top: 30),
-//                                                                child: Text(
-//                                                                  "Prayer Time",
-//                                                                  style: TextStyle(
-//                                                                      color: lightBlack,
-//                                                                      fontSize: 15,
-//                                                                      fontFamily:
-//                                                                      'ProximaNova',
-//                                                                      fontWeight:
-//                                                                      FontWeight
-//                                                                          .w600),
-//                                                                  textAlign: TextAlign
-//                                                                      .left,
-//                                                                ),
-//                                                              ));
-//
-//                                                      }
-//                                                        else if(index==2)
-//                                                       return  SliverToBoxAdapter(
-//                                                            child: Padding(
-//                                                                padding:
-//                                                                const EdgeInsets
-//                                                                    .only(
-//                                                                    right: 30.0,
-//                                                                    left: 30,
-//                                                                    bottom: 10,
-//                                                                    top: 10),
-//                                                                child: Neumorphic(
-//                                                                  boxShape: NeumorphicBoxShape.roundRect(
-//                                                                      borderRadius:
-//                                                                      BorderRadius
-//                                                                          .circular(
-//                                                                          6)),
-//                                                                  style: NeumorphicStyle(
-//                                                                      shape:
-//                                                                      NeumorphicShape
-//                                                                          .flat,
-//                                                                      depth: 8,
-//                                                                      intensity: 0.6,
-//                                                                      lightSource:
-//                                                                      LightSource
-//                                                                          .topLeft,
-//                                                                      color: Colors
-//                                                                          .white,
-//                                                                      shadowDarkColor:
-//                                                                      bluePrayerER,
-//                                                                      shadowDarkColorEmboss:
-//                                                                      Colors
-//                                                                          .white),
-//                                                                  child: Padding(
-//                                                                    padding:
-//                                                                    const EdgeInsets
-//                                                                        .only(
-//                                                                        top: 0.0,
-//                                                                        bottom:
-//                                                                        8.0),
-//                                                                    child: Column(
-//                                                                      children: <
-//                                                                          Widget>[
-//                                                                        _buildTableCalendar(),
-//                                                                        AnimatedBuilder(
-//                                                                            animation:
-//                                                                            slidePrayerControler,
-//                                                                            builder:
-//                                                                                (context,
-//                                                                                snapshot) {
-//                                                                              return FadeTransition(
-//                                                                                opacity: Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-//                                                                                    parent: slidePrayerControler,
-//                                                                                    curve: Curves.fastOutSlowIn)),
-//                                                                                child:
-//                                                                                new Transform(
-//                                                                                  transform: new Matrix4.translationValues(
-//                                                                                      -30 * (1.0 - Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: slidePrayerControler, curve: Curves.fastOutSlowIn)).value),
-//                                                                                      0.0,
-//                                                                                      0.0),
-////                                                                             new Matrix4.translationValues(
-////                                                                            30 *
-////                                                                                (1.0 -
-////                                                                                    Tween<double>(begin: 0.0, end: 1.0)
-////                                                                                        .animate(CurvedAnimation(
-////                                                                                        parent:
-////                                                                                        dropdownAnimationControler[indexs],
-////                                                                                        curve: Interval(
-////                                                                                            (1 / data.length) * index, 1.0,
-////                                                                                            curve: Curves.fastOutSlowIn)))
-////                                                                                        .value),
-////                                                                            0.0,
-////                                                                            0.0),
-//                                                                                  child:
-//                                                                                  Column(
-//                                                                                    children: <Widget>[
-//                                                                                      Container(
-//                                                                                        padding: EdgeInsets.only(left: 24, top: 10),
-//                                                                                        alignment: Alignment.centerLeft,
-//                                                                                        child: Text(
-//                                                                                          calenderDate.toFormat("dd MMMM yyyy").toString(),
-//                                                                                          style: TextStyle(color: Colors.black, fontSize: 15, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                          textAlign: TextAlign.left,
-//                                                                                        ),
-//                                                                                      ),
-//                                                                                      Padding(
-//                                                                                        padding: const EdgeInsets.only(top: 10.0),
-//                                                                                        child: SinglePrayer("Fajr", daySelectedStatus ? fajr : selectedPrayer.fajr, SunsetIcons.sunrise, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 1 : currentPrayerPos == 1 : false, remaingTimeString, 1),
-//                                                                                      ),
-//                                                                                      SinglePrayer("Sunrise", daySelectedStatus ? sunrise : selectedPrayer.sunrise, SunsetIcons.sunrise_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 6 : currentPrayerPos == 6 : false, remaingTimeString, 6),
-//                                                                                      SinglePrayer("Duhar", daySelectedStatus ? duhar : selectedPrayer.dhuhr, SunsetIcons.sun_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 2 : currentPrayerPos == 2 : false, remaingTimeString, 2),
-//                                                                                      SinglePrayer("Asr", daySelectedStatus ? asr : selectedPrayer.asr, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 3 : currentPrayerPos == 3 : false, remaingTimeString, 3),
-//                                                                                      SinglePrayer("Magrib", daySelectedStatus ? magrib : selectedPrayer.maghrib, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 4 : currentPrayerPos == 4 : false, remaingTimeString, 4),
-//                                                                                      SinglePrayer("Ishaa", daySelectedStatus ? isha : selectedPrayer.isha, SunsetIcons.sky_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 5 : currentPrayerPos == 5 : false, remaingTimeString, 5),
-//                                                                                    ],
-//                                                                                  ),
-//                                                                                ),
-//                                                                              );
-//                                                                            }),
-//                                                                      ],
-//                                                                    ),
-//                                                                  ),
-//                                                                )));
-//                                                        else if(index==3)
-//                                                        return SliverToBoxAdapter(
-//                                                            child: Padding(
-//                                                                padding:
-//                                                                const EdgeInsets
-//                                                                    .only(
-//                                                                    right: 30.0,
-//                                                                    left: 30.0,
-//                                                                    top: 0),
-//                                                                child: Container(
-//                                                                  padding:
-//                                                                  EdgeInsets.only(
-//                                                                      top: 8),
-//                                                                  child: Stack(
-//                                                                    children: <
-//                                                                        Widget>[
-//                                                                      AnimatedContainer(
-//                                                                        duration: Duration(
-//                                                                            milliseconds:
-//                                                                            500),
-//                                                                        height:
-//                                                                        settingHeight,
-//                                                                        onEnd: () {
-//                                                                          settingHeight!=206?
-//                                                                          _scrollController.animateTo(
-//
-//                                                                              _scrollController
-//                                                                                  .position
-//                                                                                  .minScrollExtent,
-//                                                                              duration: Duration(
-//                                                                                  seconds:
-//                                                                                  1),
-//                                                                              curve: Curves
-//                                                                                  .ease):_scrollController.animateTo(
-//
-//                                                                              _scrollController
-//                                                                                  .position
-//                                                                                  .maxScrollExtent,
-//                                                                              duration: Duration(
-//                                                                                  seconds:
-//                                                                                  1),
-//                                                                              curve: Curves
-//                                                                                  .ease);
-//                                                                        },
-//                                                                        child:
-//                                                                        Padding(
-//                                                                          padding: const EdgeInsets
-//                                                                              .only(
-//                                                                              top:
-//                                                                              20.0),
-//                                                                          child:
-//                                                                          Neumorphic(
-//                                                                            boxShape: NeumorphicBoxShape.roundRect(
-//                                                                                borderRadius:
-//                                                                                BorderRadius.circular(6)),
-//                                                                            style:
-//                                                                            NeumorphicStyle(
-//                                                                              shape: NeumorphicShape
-//                                                                                  .flat,
-//                                                                              depth:
-//                                                                              8,
-//                                                                              intensity:
-//                                                                              0.6,
-//                                                                              lightSource:
-//                                                                              LightSource.topLeft,
-//                                                                              color: Colors
-//                                                                                  .white,
-//                                                                              shadowDarkColor:
-//                                                                              lightBlack,
-//                                                                              shadowDarkColorEmboss:
-//                                                                              Colors.white,
-//                                                                            ),
-//                                                                            child:
-//                                                                            Container(
-//                                                                              decoration:
-//                                                                              BoxDecoration(
-//                                                                                border: Border.all(
-//                                                                                    color: lightBlack,
-//                                                                                    width: 1),
-//
-//                                                                                borderRadius:
-//                                                                                BorderRadius.circular(6.0),
-////
-//                                                                                color: Colors
-//                                                                                    .white
-//                                                                                    .withOpacity(.08),
-//                                                                              ),
-//                                                                              padding: EdgeInsets.only(
-//                                                                                  top:
-//                                                                                  20.0,
-//                                                                                  bottom:
-//                                                                                  20),
-//                                                                              child:
-//                                                                              Center(
-//                                                                                child:
-//                                                                                Column(
-//                                                                                  mainAxisAlignment:
-//                                                                                  MainAxisAlignment.spaceEvenly,
-//                                                                                  children: <Widget>[
-//                                                                                    Row(
-//                                                                                      children: <Widget>[
-//                                                                                        Expanded(
-//                                                                                          flex: 2,
-//                                                                                          child: Padding(
-//                                                                                            padding: const EdgeInsets.only(left: 8.0),
-//                                                                                            child: Text(
-//                                                                                              "Calculation \nMethord",
-//                                                                                              style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                              textAlign: TextAlign.left,
-//                                                                                            ),
-//                                                                                          ),
-//                                                                                        ),
-//                                                                                        Expanded(
-//                                                                                          flex: 4,
-//                                                                                          child: Padding(
-//                                                                                              padding: const EdgeInsets.only(right: 5, left: 5),
-//                                                                                              child: DropdownButton(
-//                                                                                                items: prayerConsts.calculationMethord
-//                                                                                                    .map((value) => DropdownMenuItem(
-//                                                                                                  child: Text(
-//                                                                                                    value.name,
-//                                                                                                    style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                                  ),
-//                                                                                                  value: value,
-//                                                                                                ))
-//                                                                                                    .toList(),
-//                                                                                                onChanged: (selectedAccountType) {
-//                                                                                                  print('$selectedAccountType');
-//                                                                                                  onMethordChanged(selectedAccountType, 1);
-//                                                                                                  setState(() {
-//                                                                                                    selectedcalculationMethord = selectedAccountType;
-//                                                                                                  });
-//                                                                                                },
-//                                                                                                isDense: false,
-//                                                                                                underline: Container(),
-//                                                                                                value: selectedcalculationMethord,
-//                                                                                                isExpanded: true,
-//                                                                                                hint: Text(
-//                                                                                                  selectedcalculationMethord.name,
-//                                                                                                  maxLines: 1,
-//                                                                                                  style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                                  softWrap: true,
-//                                                                                                ),
-//                                                                                              )),
-//                                                                                        ),
-//                                                                                      ],
-//                                                                                    ),
-//                                                                                    Row(
-//                                                                                      children: <Widget>[
-//                                                                                        Expanded(
-//                                                                                          flex: 2,
-//                                                                                          child: Padding(
-//                                                                                            padding: const EdgeInsets.only(left: 8.0),
-//                                                                                            child: Text(
-//                                                                                              "Al-Asr \nJuristic Methord",
-//                                                                                              style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                              textAlign: TextAlign.left,
-//                                                                                            ),
-//                                                                                          ),
-//                                                                                        ),
-//                                                                                        Expanded(
-//                                                                                          flex: 4,
-//                                                                                          child: Padding(
-//                                                                                              padding: const EdgeInsets.only(right: 5, left: 5),
-//                                                                                              child: DropdownButton(
-//                                                                                                items: prayerConsts.juristicMethord
-//                                                                                                    .map((value) => DropdownMenuItem(
-//                                                                                                  child: Text(
-//                                                                                                    value.name,
-//                                                                                                    style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                                  ),
-//                                                                                                  value: value,
-//                                                                                                ))
-//                                                                                                    .toList(),
-//                                                                                                onChanged: (selectedAccountType) {
-//                                                                                                  print('$selectedAccountType');
-//                                                                                                  onMethordChanged(selectedAccountType, 2);
-//                                                                                                  setState(() {
-//                                                                                                    selectedjuristicMethord = selectedAccountType;
-//                                                                                                  });
-//                                                                                                },
-//                                                                                                isDense: false,
-//                                                                                                underline: Container(),
-//                                                                                                value: selectedjuristicMethord,
-//                                                                                                isExpanded: true,
-//                                                                                                hint: Text(
-//                                                                                                  'Al-Asr Juristic Methord',
-//                                                                                                  style: TextStyle(color: Color(0xff11b719)),
-//                                                                                                  maxLines: 1,
-//                                                                                                  softWrap: true,
-//                                                                                                ),
-//                                                                                              )),
-//                                                                                        ),
-//                                                                                      ],
-//                                                                                    ),
-//                                                                                    Row(
-//                                                                                      children: <Widget>[
-//                                                                                        Expanded(
-//                                                                                          flex: 2,
-//                                                                                          child: Padding(
-//                                                                                            padding: const EdgeInsets.only(left: 8.0),
-//                                                                                            child: Text(
-//                                                                                              "Adjustment for \nHigher Latitude",
-//                                                                                              style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-//                                                                                              textAlign: TextAlign.left,
-//                                                                                            ),
-//                                                                                          ),
-//                                                                                        ),
-//                                                                                        Expanded(
-//                                                                                          flex: 4,
-//                                                                                          child: Padding(
-//                                                                                              padding: const EdgeInsets.only(right: 5, left: 5),
-//                                                                                              child: DropdownButton(
-//                                                                                                items: prayerConsts.higherLatitude
-//                                                                                                    .map((value) => DropdownMenuItem(
-//                                                                                                  child: Container(
-//                                                                                                    child: Text(
-//                                                                                                      value.name,
-//                                                                                                      style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-//                                                                                                    ),
-//                                                                                                  ),
-//                                                                                                  value: value,
-//                                                                                                ))
-//                                                                                                    .toList(),
-//                                                                                                onChanged: (selectedAccountType) {
-//                                                                                                  print('$selectedAccountType');
-//                                                                                                  onMethordChanged(selectedAccountType, 3);
-//                                                                                                  setState(() {
-//                                                                                                    selectedHigherLatitude = selectedAccountType;
-//                                                                                                  });
-//                                                                                                },
-//                                                                                                isDense: false,
-//                                                                                                value: selectedHigherLatitude,
-//                                                                                                isExpanded: true,
-//                                                                                                underline: Container(),
-//                                                                                                hint: Text(
-//                                                                                                  'Adjustment for Higher Latitude',
-//                                                                                                  style: TextStyle(color: Color(0xff11b719)),
-//                                                                                                  maxLines: 1,
-//                                                                                                  softWrap: true,
-//                                                                                                ),
-//                                                                                              )),
-//                                                                                        ),
-//                                                                                      ],
-//                                                                                    ),
-//                                                                                  ],
-//                                                                                ),
-//                                                                              ),
-//                                                                            ),
-//                                                                          ),
-//                                                                        ),
-//                                                                      ),
-//                                                                      Container(
-//                                                                        child:
-//                                                                        InkWell(
-//                                                                          child:
-//                                                                          Container(
-//                                                                            decoration:
-//                                                                            BoxDecoration(
-//                                                                              borderRadius:
-//                                                                              BorderRadius.circular(8.0),
-////
-//                                                                              color: Colors
-//                                                                                  .white,
-//                                                                            ),
-//                                                                            child:
-//                                                                            ClipRRect(
-//                                                                              borderRadius:
-//                                                                              BorderRadius.circular(8.0),
-//                                                                              child: Container(
-//                                                                                  height: 35,
-//                                                                                  width: 35,
-//                                                                                  child: Icon(
-//                                                                                    SunsetIcons.settings,
-//                                                                                    size: 20,
-//                                                                                  )),
-//                                                                            ),
-//                                                                          ),
-//                                                                          onTap: () {
-//                                                                            print(
-//                                                                                "CLICKED");
-//                                                                            if (settingHeight ==
-//                                                                                0)
-//                                                                              settingHeight =
-//                                                                              206;
-//                                                                            else
-//                                                                              settingHeight =
-//                                                                              0;
-//                                                                            setState(
-//                                                                                    () {});
-//                                                                          },
-//                                                                        ),
-//                                                                        color: Colors
-//                                                                            .transparent,
-//                                                                        padding: EdgeInsets
-//                                                                            .only(
-//                                                                            right:
-//                                                                            5),
-//                                                                        alignment:
-//                                                                        Alignment
-//                                                                            .topRight,
-//                                                                      ),
-//                                                                    ],
-//                                                                    overflow: Overflow
-//                                                                        .visible,
-//                                                                  ),
-////      child: ListCard(
-////        image:
-////        "https://res.cloudinary.com/halva/image/upload/v1588908206/adkhar/20190504_ryuaxg.jpg",
-////        title: subSection.name,
-////        date: "",
-////        inverted: index % 2 == 0 ? false : true,
-////        prevColor: Colors.white,
-////        palletcolor: pallete,
-////      ),
-//                                                                )));
-//                                                        else if(index==4)
-//                                                        return SliverToBoxAdapter(
-//                                                            child: Container(
-//                                                              height: 80,
-//                                                            ));
-//                                                        else
-//                                                          return SliverToBoxAdapter();
-//
-//                                                },
-//                                                childCount: 5,
-//                                              ),
-//                                            );
-//
-////                                            return CustomScrollView(
-////                                              physics:
-////                                              AlwaysScrollableScrollPhysics(),
-////                                              slivers: <Widget>[
-////
-////
-////                                                SliverToBoxAdapter(
-////                                                  child: Padding(
-////                                                    padding:
-////                                                    const EdgeInsets.only(
-////                                                        right: 25,
-////                                                        left: 25),
-////                                                    child: Container(
-////                                                      width: MediaQuery.of(
-////                                                          context)
-////                                                          .size
-////                                                          .width -
-////                                                          50,
-////                                                      decoration: BoxDecoration(
-////                                                          borderRadius:
-////                                                          BorderRadius
-////                                                              .all(Radius
-////                                                              .circular(
-////                                                              10))),
-////                                                      child: Stack(
-////                                                        children: <Widget>[
-////                                                          AnimatedSwitcher(
-////                                                            child:
-////                                                            _prayerWidget,
-////
-//////                                                  switchOutCurve: Curves.fastOutSlowIn,
-//////                                                  switchInCurve: Curves.fastOutSlowIn,
-////
-//////                                                  transitionBuilder:(Widget child,Animation<double> animation){
-//////                                                    return FadeTransition(
-//////                                                      child: child, opacity: new CurvedAnimation(parent: animationController, curve: Curves.fastOutSlowIn),
-//////                                                    );
-//////                                                  } ,
-////                                                            duration:
-////                                                            const Duration(
-////                                                                seconds:
-////                                                                2),
-////                                                          ),
-////                                                          Positioned(
-////                                                              bottom: 0,
-////                                                              right: 10,
-////                                                              child: Column(
-////                                                                children: <
-////                                                                    Widget>[
-////                                                                  Row(
-////                                                                    children: <
-////                                                                        Widget>[
-////                                                                      Icon(
-////                                                                        Icons
-////                                                                            .location_on,
-////                                                                        size:
-////                                                                        15,
-////                                                                        color:
-////                                                                        Colors.white,
-////                                                                      ),
-////                                                                      Text(
-////                                                                        "Kannur",
-////                                                                        style: TextStyle(
-////                                                                            color: Colors.white,
-////                                                                            fontSize: 12,
-////                                                                            fontFamily: 'ProximaNova',
-////                                                                            fontWeight: FontWeight.w600),
-////                                                                        textAlign:
-////                                                                        TextAlign.center,
-////                                                                      ),
-////                                                                    ],
-////                                                                  ),
-////                                                                  Padding(
-////                                                                    padding: const EdgeInsets
-////                                                                        .only(
-////                                                                        bottom:
-////                                                                        5.0),
-////                                                                    child:
-////                                                                    Text(
-////                                                                      _today
-////                                                                          .toFormat("dd MMMM yyyy")
-////                                                                          .toString(),
-////                                                                      style: TextStyle(
-////                                                                          color: Colors
-////                                                                              .white,
-////                                                                          fontSize:
-////                                                                          12,
-////                                                                          fontFamily:
-////                                                                          'ProximaNova',
-////                                                                          fontWeight:
-////                                                                          FontWeight.w600),
-////                                                                      textAlign:
-////                                                                      TextAlign.left,
-////                                                                    ),
-////                                                                  ),
-////                                                                ],
-////                                                                crossAxisAlignment:
-////                                                                CrossAxisAlignment
-////                                                                    .start,
-////                                                              )),
-////                                                          Padding(
-////                                                            padding:
-////                                                            const EdgeInsets
-////                                                                .only(
-////                                                                left:
-////                                                                10.0,
-////                                                                top:
-////                                                                16.0),
-////                                                            child: Column(
-////                                                              crossAxisAlignment:
-////                                                              CrossAxisAlignment
-////                                                                  .start,
-////                                                              children: <
-////                                                                  Widget>[
-////                                                                Text(
-////                                                                  "Next Prayer",
-////                                                                  style: TextStyle(
-////                                                                      color: Colors
-////                                                                          .white,
-////                                                                      fontSize:
-////                                                                      12,
-////                                                                      fontWeight:
-////                                                                      FontWeight.w600),
-////                                                                  textAlign:
-////                                                                  TextAlign
-////                                                                      .center,
-////                                                                ),
-////                                                                SizedBox(
-////                                                                  height: 5,
-////                                                                ),
-////                                                                Text(
-////                                                                  currentPrayerName,
-////                                                                  style: TextStyle(
-////                                                                      color: Colors
-////                                                                          .white,
-////                                                                      fontSize:
-////                                                                      25,
-////                                                                      fontFamily:
-////                                                                      'Helvetica',
-////                                                                      fontWeight:
-////                                                                      FontWeight.w600),
-////                                                                  textAlign:
-////                                                                  TextAlign
-////                                                                      .center,
-////                                                                ),
-//////                                                    (DateTime.now().microsecondsSinceEpoch -
-//////                                                                currentPrayer
-//////                                                                    .microsecondsSinceEpoch) <
-//////                                                            0
-//////                                                        ?
-////                                                                SizedBox(
-////                                                                    width: MediaQuery.of(context)
-////                                                                        .size
-////                                                                        .width /
-////                                                                        2,
-////                                                                    child:
-////                                                                    Container(
-////                                                                      color: Colors
-////                                                                          .transparent,
-////                                                                      alignment:
-////                                                                      Alignment.centerLeft,
-////                                                                      child:
-////                                                                      Text(
-////                                                                        dateString,
-////                                                                        style: TextStyle(
-////                                                                            color: Colors.white,
-////                                                                            fontSize: 40,
-////                                                                            fontFamily: 'ProximaNova',
-////                                                                            fontWeight: FontWeight.w600),
-////                                                                        textAlign:
-////                                                                        TextAlign.center,
-////                                                                      ),
-////                                                                    )),
-////                                                              ],
-////                                                            ),
-////                                                          )
-////                                                        ],
-////                                                      ),
-////                                                    ),
-////                                                  ),
-////                                                ),
-////
-////                                                SliverToBoxAdapter(
-////                                                    child: Padding(
-////                                                      padding:
-////                                                      const EdgeInsets.only(
-////                                                          right: 30.0,
-////                                                          left: 30.0,
-////                                                          top: 30),
-////                                                      child: Text(
-////                                                        "Prayer Time",
-////                                                        style: TextStyle(
-////                                                            color: lightBlack,
-////                                                            fontSize: 15,
-////                                                            fontFamily:
-////                                                            'ProximaNova',
-////                                                            fontWeight:
-////                                                            FontWeight.w600),
-////                                                        textAlign: TextAlign.left,
-////                                                      ),
-////                                                    )),
-////                                                SliverToBoxAdapter(
-////                                                    child: Padding(
-////                                                        padding:
-////                                                        const EdgeInsets
-////                                                            .only(
-////                                                            right: 30.0,
-////                                                            left: 30,
-////                                                            bottom: 10,
-////                                                            top: 10),
-////                                                        child: Neumorphic(
-////                                                          boxShape: NeumorphicBoxShape.roundRect(
-////                                                              borderRadius:
-////                                                              BorderRadius
-////                                                                  .circular(
-////                                                                  6)),
-////                                                          style: NeumorphicStyle(
-////                                                              shape:
-////                                                              NeumorphicShape
-////                                                                  .flat,
-////                                                              depth: 8,
-////                                                              intensity: 0.6,
-////                                                              lightSource:
-////                                                              LightSource
-////                                                                  .topLeft,
-////                                                              color: Colors
-////                                                                  .white,
-////                                                              shadowDarkColor:
-////                                                              bluePrayerER,
-////                                                              shadowDarkColorEmboss:
-////                                                              Colors
-////                                                                  .white),
-////                                                          child: Padding(
-////                                                            padding:
-////                                                            const EdgeInsets
-////                                                                .only(
-////                                                                top: 0.0,
-////                                                                bottom:
-////                                                                8.0),
-////                                                            child: Column(
-////                                                              children: <
-////                                                                  Widget>[
-////                                                                _buildTableCalendar(),
-////                                                                AnimatedBuilder(
-////                                                                    animation:
-////                                                                    slidePrayerControler,
-////                                                                    builder:
-////                                                                        (context,
-////                                                                        snapshot) {
-////                                                                      return FadeTransition(
-////                                                                        opacity: Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-////                                                                            parent: slidePrayerControler,
-////                                                                            curve: Curves.fastOutSlowIn)),
-////                                                                        child:
-////                                                                        new Transform(
-////                                                                          transform: new Matrix4.translationValues(
-////                                                                              -30 * (1.0 - Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: slidePrayerControler, curve: Curves.fastOutSlowIn)).value),
-////                                                                              0.0,
-////                                                                              0.0),
-//////                                                                             new Matrix4.translationValues(
-//////                                                                            30 *
-//////                                                                                (1.0 -
-//////                                                                                    Tween<double>(begin: 0.0, end: 1.0)
-//////                                                                                        .animate(CurvedAnimation(
-//////                                                                                        parent:
-//////                                                                                        dropdownAnimationControler[indexs],
-//////                                                                                        curve: Interval(
-//////                                                                                            (1 / data.length) * index, 1.0,
-//////                                                                                            curve: Curves.fastOutSlowIn)))
-//////                                                                                        .value),
-//////                                                                            0.0,
-//////                                                                            0.0),
-////                                                                          child:
-////                                                                          Column(
-////                                                                            children: <Widget>[
-////                                                                              Container(
-////                                                                                padding: EdgeInsets.only(left: 24, top: 10),
-////                                                                                alignment: Alignment.centerLeft,
-////                                                                                child: Text(
-////                                                                                  calenderDate.toFormat("dd MMMM yyyy").toString(),
-////                                                                                  style: TextStyle(color: Colors.black, fontSize: 15, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-////                                                                                  textAlign: TextAlign.left,
-////                                                                                ),
-////                                                                              ),
-////                                                                              Padding(
-////                                                                                padding: const EdgeInsets.only(top: 10.0),
-////                                                                                child: SinglePrayer("Fajr", daySelectedStatus ? fajr : selectedPrayer.fajr, SunsetIcons.sunrise, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 1 : currentPrayerPos == 1 : false, remaingTimeString, 1),
-////                                                                              ),
-////                                                                              SinglePrayer("Sunrise", daySelectedStatus ? sunrise : selectedPrayer.sunrise, SunsetIcons.sunrise_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 6 : currentPrayerPos == 6 : false, remaingTimeString, 6),
-////                                                                              SinglePrayer("Duhar", daySelectedStatus ? duhar : selectedPrayer.dhuhr, SunsetIcons.sun_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 2 : currentPrayerPos == 2 : false, remaingTimeString, 2),
-////                                                                              SinglePrayer("Asr", daySelectedStatus ? asr : selectedPrayer.asr, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 3 : currentPrayerPos == 3 : false, remaingTimeString, 3),
-////                                                                              SinglePrayer("Magrib", daySelectedStatus ? magrib : selectedPrayer.maghrib, SunsetIcons.cloudy_2, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 4 : currentPrayerPos == 4 : false, remaingTimeString, 4),
-////                                                                              SinglePrayer("Ishaa", daySelectedStatus ? isha : selectedPrayer.isha, SunsetIcons.sky_1, daySelectedStatus ? currentPrayerPos == 0 ? prevPrayerPos == 5 : currentPrayerPos == 5 : false, remaingTimeString, 5),
-////                                                                            ],
-////                                                                          ),
-////                                                                        ),
-////                                                                      );
-////                                                                    }),
-////                                                              ],
-////                                                            ),
-////                                                          ),
-////                                                        ))),
-////
-////                                                SliverToBoxAdapter(
-////                                                    child: Padding(
-////                                                        padding:
-////                                                        const EdgeInsets
-////                                                            .only(
-////                                                            right: 30.0,
-////                                                            left: 30.0,
-////                                                            top: 0),
-////                                                        child: Container(
-////                                                          padding:
-////                                                          EdgeInsets.only(
-////                                                              top: 8),
-////                                                          child: Stack(
-////                                                            children: <
-////                                                                Widget>[
-////                                                              AnimatedContainer(
-////                                                                duration: Duration(
-////                                                                    milliseconds:
-////                                                                    500),
-////                                                                height:
-////                                                                settingHeight,
-////                                                                onEnd: () {
-////                                                                  settingHeight!=206?
-////                                                                  _scrollController.animateTo(
-////
-////                                                                      _scrollController
-////                                                                          .position
-////                                                                          .minScrollExtent,
-////                                                                      duration: Duration(
-////                                                                          seconds:
-////                                                                          1),
-////                                                                      curve: Curves
-////                                                                          .ease):_scrollController.animateTo(
-////
-////                                                                      _scrollController
-////                                                                          .position
-////                                                                          .maxScrollExtent,
-////                                                                      duration: Duration(
-////                                                                          seconds:
-////                                                                          1),
-////                                                                      curve: Curves
-////                                                                          .ease);
-////                                                                },
-////                                                                child:
-////                                                                Padding(
-////                                                                  padding: const EdgeInsets
-////                                                                      .only(
-////                                                                      top:
-////                                                                      20.0),
-////                                                                  child:
-////                                                                  Neumorphic(
-////                                                                    boxShape: NeumorphicBoxShape.roundRect(
-////                                                                        borderRadius:
-////                                                                        BorderRadius.circular(6)),
-////                                                                    style:
-////                                                                    NeumorphicStyle(
-////                                                                      shape: NeumorphicShape
-////                                                                          .flat,
-////                                                                      depth:
-////                                                                      8,
-////                                                                      intensity:
-////                                                                      0.6,
-////                                                                      lightSource:
-////                                                                      LightSource.topLeft,
-////                                                                      color: Colors
-////                                                                          .white,
-////                                                                      shadowDarkColor:
-////                                                                      lightBlack,
-////                                                                      shadowDarkColorEmboss:
-////                                                                      Colors.white,
-////                                                                    ),
-////                                                                    child:
-////                                                                    Container(
-////                                                                      decoration:
-////                                                                      BoxDecoration(
-////                                                                        border: Border.all(
-////                                                                            color: lightBlack,
-////                                                                            width: 1),
-////
-////                                                                        borderRadius:
-////                                                                        BorderRadius.circular(6.0),
-//////
-////                                                                        color: Colors
-////                                                                            .white
-////                                                                            .withOpacity(.08),
-////                                                                      ),
-////                                                                      padding: EdgeInsets.only(
-////                                                                          top:
-////                                                                          20.0,
-////                                                                          bottom:
-////                                                                          20),
-////                                                                      child:
-////                                                                      Center(
-////                                                                        child:
-////                                                                        Column(
-////                                                                          mainAxisAlignment:
-////                                                                          MainAxisAlignment.spaceEvenly,
-////                                                                          children: <Widget>[
-////                                                                            Row(
-////                                                                              children: <Widget>[
-////                                                                                Expanded(
-////                                                                                  flex: 2,
-////                                                                                  child: Padding(
-////                                                                                    padding: const EdgeInsets.only(left: 8.0),
-////                                                                                    child: Text(
-////                                                                                      "Calculation \nMethord",
-////                                                                                      style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-////                                                                                      textAlign: TextAlign.left,
-////                                                                                    ),
-////                                                                                  ),
-////                                                                                ),
-////                                                                                Expanded(
-////                                                                                  flex: 4,
-////                                                                                  child: Padding(
-////                                                                                      padding: const EdgeInsets.only(right: 5, left: 5),
-////                                                                                      child: DropdownButton(
-////                                                                                        items: prayerConsts.calculationMethord
-////                                                                                            .map((value) => DropdownMenuItem(
-////                                                                                          child: Text(
-////                                                                                            value.name,
-////                                                                                            style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-////                                                                                          ),
-////                                                                                          value: value,
-////                                                                                        ))
-////                                                                                            .toList(),
-////                                                                                        onChanged: (selectedAccountType) {
-////                                                                                          print('$selectedAccountType');
-////                                                                                          onMethordChanged(selectedAccountType, 1);
-////                                                                                          setState(() {
-////                                                                                            selectedcalculationMethord = selectedAccountType;
-////                                                                                          });
-////                                                                                        },
-////                                                                                        isDense: false,
-////                                                                                        underline: Container(),
-////                                                                                        value: selectedcalculationMethord,
-////                                                                                        isExpanded: true,
-////                                                                                        hint: Text(
-////                                                                                          selectedcalculationMethord.name,
-////                                                                                          maxLines: 1,
-////                                                                                          style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-////                                                                                          softWrap: true,
-////                                                                                        ),
-////                                                                                      )),
-////                                                                                ),
-////                                                                              ],
-////                                                                            ),
-////                                                                            Row(
-////                                                                              children: <Widget>[
-////                                                                                Expanded(
-////                                                                                  flex: 2,
-////                                                                                  child: Padding(
-////                                                                                    padding: const EdgeInsets.only(left: 8.0),
-////                                                                                    child: Text(
-////                                                                                      "Al-Asr \nJuristic Methord",
-////                                                                                      style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-////                                                                                      textAlign: TextAlign.left,
-////                                                                                    ),
-////                                                                                  ),
-////                                                                                ),
-////                                                                                Expanded(
-////                                                                                  flex: 4,
-////                                                                                  child: Padding(
-////                                                                                      padding: const EdgeInsets.only(right: 5, left: 5),
-////                                                                                      child: DropdownButton(
-////                                                                                        items: prayerConsts.juristicMethord
-////                                                                                            .map((value) => DropdownMenuItem(
-////                                                                                          child: Text(
-////                                                                                            value.name,
-////                                                                                            style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-////                                                                                          ),
-////                                                                                          value: value,
-////                                                                                        ))
-////                                                                                            .toList(),
-////                                                                                        onChanged: (selectedAccountType) {
-////                                                                                          print('$selectedAccountType');
-////                                                                                          onMethordChanged(selectedAccountType, 2);
-////                                                                                          setState(() {
-////                                                                                            selectedjuristicMethord = selectedAccountType;
-////                                                                                          });
-////                                                                                        },
-////                                                                                        isDense: false,
-////                                                                                        underline: Container(),
-////                                                                                        value: selectedjuristicMethord,
-////                                                                                        isExpanded: true,
-////                                                                                        hint: Text(
-////                                                                                          'Al-Asr Juristic Methord',
-////                                                                                          style: TextStyle(color: Color(0xff11b719)),
-////                                                                                          maxLines: 1,
-////                                                                                          softWrap: true,
-////                                                                                        ),
-////                                                                                      )),
-////                                                                                ),
-////                                                                              ],
-////                                                                            ),
-////                                                                            Row(
-////                                                                              children: <Widget>[
-////                                                                                Expanded(
-////                                                                                  flex: 2,
-////                                                                                  child: Padding(
-////                                                                                    padding: const EdgeInsets.only(left: 8.0),
-////                                                                                    child: Text(
-////                                                                                      "Adjustment for \nHigher Latitude",
-////                                                                                      style: TextStyle(color: lightBlack, fontSize: 12, fontFamily: 'ProximaNova', fontWeight: FontWeight.w600),
-////                                                                                      textAlign: TextAlign.left,
-////                                                                                    ),
-////                                                                                  ),
-////                                                                                ),
-////                                                                                Expanded(
-////                                                                                  flex: 4,
-////                                                                                  child: Padding(
-////                                                                                      padding: const EdgeInsets.only(right: 5, left: 5),
-////                                                                                      child: DropdownButton(
-////                                                                                        items: prayerConsts.higherLatitude
-////                                                                                            .map((value) => DropdownMenuItem(
-////                                                                                          child: Container(
-////                                                                                            child: Text(
-////                                                                                              value.name,
-////                                                                                              style: TextStyle(color: Color(0xff11b719), fontSize: 12),
-////                                                                                            ),
-////                                                                                          ),
-////                                                                                          value: value,
-////                                                                                        ))
-////                                                                                            .toList(),
-////                                                                                        onChanged: (selectedAccountType) {
-////                                                                                          print('$selectedAccountType');
-////                                                                                          onMethordChanged(selectedAccountType, 3);
-////                                                                                          setState(() {
-////                                                                                            selectedHigherLatitude = selectedAccountType;
-////                                                                                          });
-////                                                                                        },
-////                                                                                        isDense: false,
-////                                                                                        value: selectedHigherLatitude,
-////                                                                                        isExpanded: true,
-////                                                                                        underline: Container(),
-////                                                                                        hint: Text(
-////                                                                                          'Adjustment for Higher Latitude',
-////                                                                                          style: TextStyle(color: Color(0xff11b719)),
-////                                                                                          maxLines: 1,
-////                                                                                          softWrap: true,
-////                                                                                        ),
-////                                                                                      )),
-////                                                                                ),
-////                                                                              ],
-////                                                                            ),
-////                                                                          ],
-////                                                                        ),
-////                                                                      ),
-////                                                                    ),
-////                                                                  ),
-////                                                                ),
-////                                                              ),
-////                                                              Container(
-////                                                                child:
-////                                                                InkWell(
-////                                                                  child:
-////                                                                  Container(
-////                                                                    decoration:
-////                                                                    BoxDecoration(
-////                                                                      borderRadius:
-////                                                                      BorderRadius.circular(8.0),
-//////
-////                                                                      color: Colors
-////                                                                          .white,
-////                                                                    ),
-////                                                                    child:
-////                                                                    ClipRRect(
-////                                                                      borderRadius:
-////                                                                      BorderRadius.circular(8.0),
-////                                                                      child: Container(
-////                                                                          height: 35,
-////                                                                          width: 35,
-////                                                                          child: Icon(
-////                                                                            SunsetIcons.settings,
-////                                                                            size: 20,
-////                                                                          )),
-////                                                                    ),
-////                                                                  ),
-////                                                                  onTap: () {
-////                                                                    print(
-////                                                                        "CLICKED");
-////                                                                    if (settingHeight ==
-////                                                                        0)
-////                                                                      settingHeight =
-////                                                                      206;
-////                                                                    else
-////                                                                      settingHeight =
-////                                                                      0;
-////                                                                    setState(
-////                                                                            () {});
-////                                                                  },
-////                                                                ),
-////                                                                color: Colors
-////                                                                    .transparent,
-////                                                                padding: EdgeInsets
-////                                                                    .only(
-////                                                                    right:
-////                                                                    5),
-////                                                                alignment:
-////                                                                Alignment
-////                                                                    .topRight,
-////                                                              ),
-////                                                            ],
-////                                                            overflow: Overflow
-////                                                                .visible,
-////                                                          ),
-//////      child: ListCard(
-//////        image:
-//////        "https://res.cloudinary.com/halva/image/upload/v1588908206/adkhar/20190504_ryuaxg.jpg",
-//////        title: subSection.name,
-//////        date: "",
-//////        inverted: index % 2 == 0 ? false : true,
-//////        prevColor: Colors.white,
-//////        palletcolor: pallete,
-//////      ),
-////                                                        ))),
-////
-////                                                SliverToBoxAdapter(
-////                                                    child: Container(
-////                                                      height: 80,
-////                                                    ))
-////                                              ],
-////                                            );
-//                                          }),
-//                                    ),
-//                                  ],
-//                                ),
-//                              ),
                             ],
-//                            controller: _scrollController,
-//                            headerSliverBuilder: (BuildContext context,
-//                                bool innerBoxIsScrolled) {
-//                              return <Widget>[
-//                                ///First sliver is the App Bar
-//
-//                              ];
-//                            },
-//                            body:
-                          )
-
-//                        NestedScrollView(
-//                            physics: AlwaysScrollableScrollPhysics(),
-//                            controller: _scrollController,
-//                            headerSliverBuilder: (BuildContext context,
-//                                bool innerBoxIsScrolled) {
-//                              return <Widget>[
-//                                ///First sliver is the App Bar
-//                                AnimatedBuilder(
-//                                    animation: _ColorAnimationController,
-//                                    builder: (context, snapshot) {
-//                                      return  Container();
-////                                        SliverAppBar(
-////                                        centerTitle: false,
-//////                    title:   Container(
-//////
-//////                    alignment: Alignment.centerLeft,
-//////                    child: Image.asset(
-//////                    "assets/images/icon.png",
-//////                    width: 50,
-//////                    height: 50,
-//////                    ),
-//////                    ),
-////
-////                                        ///Properties of app bar
-//////                  backgroundColor: isShrink
-//////                      ? Color(widget.prevColor)
-//////                      : Colors.transparent,
-////                                        floating: true,
-////                                        pinned: true,
-////                                        backgroundColor: whitebg,
-////                                        expandedHeight: 180,
-////
-////                                        actions: <Widget>[
-////
-////                                        ],
-////
-////                                        ///Properties of the App Bar when it is expanded
-////
-////                                      );
-//                                    }),
-//                              ];
-//                            },
-//
-//                            body:),
-                          ),
+                          )),
                     ),
                   ),
 //          ),
@@ -3790,13 +1149,14 @@ SliverToBoxAdapter(child: Container(
     );
   }
 
-  Future<List<DuaHeading>> getSearchData({name}) async {
-    List<DuaHeading> dua =
-        await Provider.of<DuaHeadingHelper>(context, listen: true)
-            .searchProducts(
+  Future<List<Location>> getSearchData({name, context}) async {
+    List<Location> location =
+        await Provider.of<LocationHelper>(context, listen: true).searchLocaiton(
       query: name,
     );
-    return dua;
+
+    _locationStream.sink.add(location);
+    return location;
   }
 
   Widget SinglePrayer(
@@ -4185,10 +1545,10 @@ SliverToBoxAdapter(child: Container(
     // Init location info.
 
     geo = Geocoordinate((GeocoordinateBuilder b) => b
-      ..latitude = 11.86752
-      ..longitude = 75.35763
-      ..altitude = 13);
-    const double timezone = 5.5;
+      ..latitude = initialLocation.latitude
+      ..longitude = initialLocation.longitude
+      ..altitude = initialLocation.altitude + 0.0);
+    double timezone = initialLocation.utcOffset;
 
     DateTime when = DateTime.now();
     prayers = Prayers.on(
@@ -4264,10 +1624,10 @@ SliverToBoxAdapter(child: Container(
     // Init location info.
 
     geo = Geocoordinate((GeocoordinateBuilder b) => b
-      ..latitude = 11.86752
-      ..longitude = 75.35763
-      ..altitude = 13);
-    const double timezone = 5.5;
+      ..latitude = initialLocation.latitude
+      ..longitude = initialLocation.longitude
+      ..altitude = initialLocation.altitude + 0.0);
+    double timezone = initialLocation.utcOffset;
 
     DateTime when = DateTime.now();
     prayers = Prayers.on(
@@ -4302,6 +1662,25 @@ SliverToBoxAdapter(child: Container(
 
   Future<void> setAdjustmentTimeInitial(DateTime when) async {
     sharedPreferences = await SharedPreferences.getInstance();
+    Location location;
+    Position position;
+    List<Placemark> placemark;
+
+    double utc;
+    if (sharedPreferences.getDouble("latitude") == null) {
+      position = await Geolocator()
+          .getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      placemark = await Geolocator().placemarkFromCoordinates(21.3891, 39.8579);
+
+      print(
+          "${placemark[0].country} ${placemark[0].isoCountryCode}  ${placemark[0].administrativeArea} ${placemark[0].locality} ${placemark[0].postalCode} ${placemark[0].subLocality}");
+
+      int min = position.timestamp.toLocal().minute -
+          (position.timestamp.toUtc()).minute.abs();
+      int hour = position.timestamp.toLocal().hour -
+          (position.timestamp.toUtc()).hour.abs();
+      utc = hour + (min / 60);
+    }
     setState(() {
       adjestTime[1] = sharedPreferences.getDouble("fajrAdjustment") ?? 0;
       adjestTime[6] = sharedPreferences.getDouble("sunriseAdjustment") ?? 0;
@@ -4309,6 +1688,29 @@ SliverToBoxAdapter(child: Container(
       adjestTime[3] = sharedPreferences.getDouble("asrAdjustment") ?? 0;
       adjestTime[4] = sharedPreferences.getDouble("magribAdjustment") ?? 0;
       adjestTime[5] = sharedPreferences.getDouble("ishaAdjustment") ?? 0;
+
+      if (sharedPreferences.getDouble("latitude") == null) {
+        Location locations = new Location.current(
+            position.altitude.round(),
+            "${placemark[0].subLocality}, ${placemark[0].locality}",
+            "${placemark[0].isoCountryCode}",
+            position.latitude,
+            position.longitude,
+            position.timestamp.timeZoneName,
+            utc);
+
+        initialLocation = locations;
+        location = locations;
+      } else {
+        initialLocation = new Location.current(
+            sharedPreferences.getInt("altitude"),
+            sharedPreferences.getString("cityName"),
+            sharedPreferences.getString("countryCode"),
+            sharedPreferences.getDouble("latitude"),
+            sharedPreferences.getDouble("longitude"),
+            sharedPreferences.getString("timezone"),
+            sharedPreferences.getDouble("utcOffset"));
+      }
 
       selectedCalcMethordPos =
           sharedPreferences.getInt("selectedCalculationMethord") ?? 0;
@@ -4347,10 +1749,10 @@ SliverToBoxAdapter(child: Container(
     // Init location info.
 
     geo = Geocoordinate((GeocoordinateBuilder b) => b
-      ..latitude = 11.86752
-      ..longitude = 75.35763
-      ..altitude = 13);
-    const double timezone = 5.5;
+      ..latitude = initialLocation.latitude
+      ..longitude = initialLocation.longitude
+      ..altitude = initialLocation.altitude + 0.0);
+    double timezone = initialLocation.utcOffset;
 
     // Generate prayer times for one day on April 12th, 2018.
     prayers = Prayers.on(
@@ -4570,10 +1972,10 @@ SliverToBoxAdapter(child: Container(
       // Init location info.
 
       geo = Geocoordinate((GeocoordinateBuilder b) => b
-        ..latitude = 11.86752
-        ..longitude = 75.35763
-        ..altitude = 13);
-      const double timezone = 5.5;
+        ..latitude = initialLocation.latitude
+        ..longitude = initialLocation.longitude
+        ..altitude = initialLocation.altitude + 0.0);
+      double timezone = initialLocation.utcOffset;
 
       DateTime when = DateTime.now();
 
@@ -4584,22 +1986,7 @@ SliverToBoxAdapter(child: Container(
         selectedPrayer = Prayers.on(
             date: day, settings: settings, coordinate: geo, timeZone: timezone);
       }
-//    print(prayers.imsak);
-//    print(prayers.fajr);
-//    fajr = (prayers.fajr);
-//    print(prayers.sunrise);
-//    sunrise = prayers.sunrise;
-//    print(prayers.dhuha);
-//    print(prayers.dhuhr);
-//    duhar = (prayers.dhuhr);
-//    asr = (prayers.asr);
-//    print(prayers.asr);
-//    print(prayers.sunset);
-//    magrib = (prayers.maghrib);
-//    print(prayers.maghrib);
-//    isha = (prayers.isha);
-//    print(prayers.isha);
-//    print(prayers.midnight);
+
       prevPrayerPos = currentPrayerPos;
       currentPrayerPos = 0;
 
@@ -4612,6 +1999,378 @@ SliverToBoxAdapter(child: Container(
     print('CALLBACK: _onVisibleDaysChanged');
 
 //    print(_today.toFormat("dd MMMM yyyy"));
+  }
+
+//  Future<List<DropdownMenuItem>> getLocationList(
+//      LocationHelper dbHelper) async {
+//    List<DropdownMenuItem> gLocation = [];
+//    await dbHelper.getAllLocations().then((value) {
+//      int i = 0;
+//      for (Location location in value) {
+//        gLocation.add(DropdownMenuItem(
+//          child: Text(location.cityName),
+//          value: location.cityName,
+//        ));
+//        i++;
+//      }
+//    });
+//    return gLocation;
+////    List<DuaHeading> dua =
+////    await Provider.of<DuaHeadingHelper>(context, listen: true)
+////        .getFavoriteData();
+//
+////    return dua;
+//  }
+
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey();
+  var textController;
+
+  double get widthButtonCancel {
+    textController.text?.isEmpty ?? true ? 0 : 50;
+  }
+
+  Future<void> _openFilteredCountryPickerDialog(BuildContext context) async {
+    List<Location> locations = [];
+    locations.add(initialLocation);
+    _locationStream.sink.add(locations);
+    textController = TextEditingController();
+    _focus = FocusNode();
+    _focus.addListener(_onFocusChange);
+    if (_timer1 != null) {
+      _timer1.cancel();
+    }
+    _timer1 = Timer(
+      Duration(milliseconds: 500),
+      () {
+        setState(() {
+          query = textController.text;
+        });
+        getSearchData(name: textController.text, context: context);
+        Provider.of<LocationHelper>(
+          context,
+          listen: false,
+        ).searchLocaiton(query: textController.text);
+      },
+    );
+
+    showDialog(
+        context: context,
+        builder: (contexts) {
+          return Dialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 16,
+            child: Container(
+              height: MediaQuery.of(context).size.height / 2,
+              child: CustomScrollView(
+
+                physics: AlwaysScrollableScrollPhysics(),
+                slivers: <Widget>[
+//                                SliverAppBar(
+//                                  backgroundColor: whitebg,
+//                                  floating: true,
+//                                  snap: true,
+//                                  pinned: true,
+//                                  flexibleSpace:
+//                                ),
+
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SliverAppBarDelegate(
+                      minHeight: isShrink ? 110.0 : 70,
+                      maxHeight: isShrink ? 110.0 : 70.0,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Container(
+                          color: Colors.transparent,
+                          padding: const EdgeInsets.only(
+                              top: 8.0, bottom: 16.0, right: 8.0, left: 8.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(5.0),
+                            ),
+                            alignment: Alignment.bottomCenter,
+                            child: SizedBox(
+                              height: 50,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: TypeAheadFormField(
+                                      textFieldConfiguration:
+                                          TextFieldConfiguration(
+                                              decoration: InputDecoration(
+                                                fillColor: Colors.black,
+                                                hintText: "Search Location",
+                                                enabledBorder: InputBorder.none,
+                                                border: InputBorder.none,
+                                              ),
+                                              controller: textController,
+                                              focusNode: _focus),
+                                      suggestionsCallback: (String pattern) {
+                                        return List();
+                                      },
+                                      errorBuilder: (context, suggestion) {
+                                        return SizedBox();
+                                      },
+                                      noItemsFoundBuilder: (context) {
+                                        return SizedBox();
+                                      },
+                                      itemBuilder: (context, suggestion) {
+                                        return ListTile(
+                                          title: Text(suggestion),
+                                        );
+                                      },
+                                      transitionBuilder: _transitionBuilder,
+                                      onSuggestionSelected: (suggestion) {
+                                        FocusScope.of(context).requestFocus(
+                                            FocusNode()); //dismiss keyboard
+
+                                        if (suggestion != textController.text) {
+                                          setState(() {
+                                            textController.text = suggestion;
+                                          });
+                                          setState(() {
+                                            query = textController.text;
+                                          });
+                                          Provider.of<LocationHelper>(
+                                            context,
+                                            listen: false,
+                                          ).searchLocaiton(
+                                              query: textController.text);
+                                          getSearchData(
+                                              name: textController.text,
+                                              context: context);
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  AnimatedContainer(
+                                    width: widthButtonCancel,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          textController.text = "";
+                                          isVisibleSearch = false;
+                                        });
+                                        textController.text = "";
+                                        FocusScope.of(context)
+                                            .requestFocus(FocusNode());
+                                      },
+                                      child: Center(
+                                          child: widthButtonCancel == 0
+                                              ? Container()
+                                              : Icon(Icons.cancel)
+
+//                      Text(
+//                        S.of(context).cancelx,
+//                        overflow: TextOverflow.ellipsis,
+//                      ),
+
+                                          ),
+                                    ),
+                                    duration: Duration(milliseconds: 200),
+                                  ),
+                                  AnimatedContainer(
+                                    width: widthButtonCancel == 0 ? 50 : 0,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          textController.text = "";
+                                          isVisibleSearch = false;
+                                        });
+                                        textController.text = "";
+                                        FocusScope.of(context)
+                                            .requestFocus(FocusNode());
+                                      },
+                                      child: IconButton(
+                                        iconSize: 20,
+                                        icon: Icon(FeatherIcons.search,
+                                            color: Colors.black),
+                                        onPressed: () {},
+                                      ),
+                                    ),
+                                    duration: Duration(milliseconds: 200),
+                                  )
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+//                                SliverFixedExtentList(
+//                                    itemExtent: 150.0,
+//                                    delegate: SliverChildListDelegate([
+//
+//                                    ])),
+
+                  StreamBuilder<List<Location>>(
+                      stream: _locationStream.stream,
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+//                          return SliverAnimatedList(
+//                            key: _listKey,
+//                            initialItemCount: snapshot.data.length,
+//                            itemBuilder: (BuildContext context, int index, Animation animation) {
+//                              return FadeTransition(
+//                                opacity: animation,
+//                                child: ListTile(
+//                                  title: Text(snapshot.data[index].cityName),
+//                                  subtitle: Text(snapshot.data[index].countryCode),
+//
+//                                  onLongPress: () {
+//                                    //TODO: Delete user
+//                                  },
+//                                ),
+//                              );
+//                            },
+//                          );
+
+                          return SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                                (BuildContext context, int index) {
+                              return AnimatedBuilder(
+                                  animation: ColorTween(
+                                          begin: Colors.white,
+                                          end: Color(0xff1b305d))
+                                      .animate(_ColorAnimationController1),
+                                  builder:
+                                      (BuildContext context, Widget child) {
+                                    return ListTile(
+                                      title:
+                                          Text(snapshot.data[index].cityName),
+                                      subtitle: Text(
+                                          snapshot.data[index].countryCode),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        onLocationChanged(snapshot.data[index]);
+                                        initialLocation = snapshot.data[index];
+                                        setState(() {});
+                                      },
+                                      onLongPress: () {
+                                        //TODO: Delete user
+                                      },
+                                    );
+                                  });
+                            }, childCount: snapshot.data.length),
+                          );
+                        } else {
+                          return SliverToBoxAdapter(
+                            child: Container(
+                              alignment: Alignment.center,
+                              child: SizedBox(
+                                height: 30,
+                                width: 30,
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                          );
+                        }
+                      }),
+                  SliverToBoxAdapter(
+                      child: Container(
+                    height: 80,
+                  ))
+                ],
+              ),
+            ),
+          );
+        });
+  }
+
+  Widget _transitionBuilder(BuildContext context, Widget suggestionsBox,
+      AnimationController controller) {
+    if (_timer1 != null) {
+      _timer1.cancel();
+    }
+    _timer1 = Timer(
+      Duration(milliseconds: 500),
+
+      () {
+        setState(() {
+          query = textController.text;
+        });
+        Provider.of<LocationHelper>(
+          context,
+          listen: false,
+        ).searchLocaiton(query: textController.text);
+      },
+    );
+    getSearchData(name: textController.text, context: context);
+    return suggestionsBox;
+  }
+
+  Future<void> onLocationChanged(Location location) async {
+    sharedPreferences = await SharedPreferences.getInstance();
+    setState(() {
+      sharedPreferences.setDouble("latitude", location.latitude);
+      sharedPreferences.setDouble("longitude", location.longitude);
+      sharedPreferences.setInt("altitude", location.altitude);
+      sharedPreferences.setDouble("utcOffset", location.utcOffset);
+      sharedPreferences.setString("cityName", location.cityName);
+      sharedPreferences.setString("timezone", location.timezone);
+      sharedPreferences.setString("countryCode", location.countryCode);
+    });
+    CalculationMethodPreset calculationMethodPreset = prayerConsts
+        .calculationMethord[selectedCalcMethordPos].calculationMethodPreset;
+
+    JuristicMethodPreset juristicMethodPresets = prayerConsts
+        .juristicMethord[selectedAsrJuristicMethordPos].juristicMethodPreset;
+
+    HighLatitudeAdjustment highLatitudeAdjustment = prayerConsts
+        .higherLatitude[selectedHigherLatitudeMethordPos].higherAltitudePresent;
+
+    PrayerCalculationSettings settings = PrayerCalculationSettings(
+        (PrayerCalculationSettingsBuilder b) => b
+          ..imsakParameter.value = -10.0
+          ..imsakParameter.type = PrayerCalculationParameterType.minutesAdjust
+          ..calculationMethod.replace(CalculationMethod.fromPreset(
+              preset: calculationMethodPreset, when: DateTime.now().toUtc()))
+          ..juristicMethod
+              .replace(JuristicMethod.fromPreset(preset: juristicMethodPresets))
+          ..highLatitudeAdjustment = highLatitudeAdjustment
+          ..imsakMinutesAdjustment = 0
+          ..fajrMinutesAdjustment = adjestTime[1].toInt()
+          ..sunriseMinutesAdjustment = adjestTime[6].toInt()
+          ..dhuhaMinutesAdjustment = 0
+          ..dhuhrMinutesAdjustment = adjestTime[2].toInt()
+          ..asrMinutesAdjustment = adjestTime[3].toInt()
+          ..maghribMinutesAdjustment = adjestTime[4].toInt()
+          ..ishaMinutesAdjustment = adjestTime[5].toInt());
+
+    // Init location info.
+
+    geo = Geocoordinate((GeocoordinateBuilder b) => b
+      ..latitude = location.latitude
+      ..longitude = location.longitude
+      ..altitude = location.altitude + 0.0);
+    double timezone = location.utcOffset;
+
+    DateTime when = DateTime.now();
+    prayers = Prayers.on(
+        date: when, settings: settings, coordinate: geo, timeZone: timezone);
+    print(prayers.imsak);
+    print(prayers.fajr);
+    fajr = (prayers.fajr);
+    print(prayers.sunrise);
+    sunrise = prayers.sunrise;
+    print(prayers.dhuha);
+    print(prayers.dhuhr);
+    duhar = (prayers.dhuhr);
+    asr = (prayers.asr);
+    print(prayers.asr);
+    print(prayers.sunset);
+    magrib = (prayers.maghrib);
+    print(prayers.maghrib);
+    isha = (prayers.isha);
+    print(prayers.isha);
+    print(prayers.midnight);
+    prevPrayerPos = currentPrayerPos;
+    currentPrayerPos = 0;
   }
 }
 
@@ -4690,5 +2449,37 @@ class Isha extends StatelessWidget {
         fit: BoxFit.cover,
       ),
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate({
+    @required this.minHeight,
+    @required this.maxHeight,
+    @required this.child,
+  });
+
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => minHeight;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return new SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return true;
+//    return maxHeight != oldDelegate.maxHeight ||
+//        minHeight != oldDelegate.minHeight ||
+//        child != oldDelegate.child;
   }
 }

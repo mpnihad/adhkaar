@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:adhkaar/database/model/Duaheading.dart';
 import 'package:adhkaar/database/modelhelper/DuaHeadingHelper.dart';
+import 'package:adhkaar/database/modelhelper/LocationHelper.dart';
 import 'package:adhkaar/prayercalculator/src/models/calculation_method.dart';
 import 'package:adhkaar/prayercalculator/src/models/juristic_method.dart';
 import 'package:adhkaar/prayercalculator/src/models/location.dart';
@@ -24,12 +25,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:keyboard_visibility/keyboard_visibility.dart';
+import 'package:location_permissions/location_permissions.dart';
 import 'package:navigation_dot_bar/navigation_dot_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database/helper/Helper.dart';
+import 'database/model/Location.dart';
 import 'icons/prayer_icons_icons.dart';
 import 'model/MethordModel.dart';
 
@@ -104,9 +107,11 @@ class MyApp extends StatelessWidget {
     var dbHelper = Helper();
 
     final _duaHeading = DuaHeadingHelper(dbHelper.db);
+    final _locationHelper = LocationHelper(dbHelper.db);
     return MultiProvider(
       providers: [
         Provider<DuaHeadingHelper>.value(value: _duaHeading),
+        Provider<LocationHelper>.value(value: _locationHelper),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -141,7 +146,9 @@ class BaseScreenState extends State<BaseScreen> {
   @override
   void initState() {
     super.initState();
+
     _requestIOSPermissions();
+    requestPermission();
     _configureDidReceiveLocalNotificationSubject();
     _configureSelectNotificationSubject();
     isKeyboardVisible = false;
@@ -516,6 +523,7 @@ count=0;
     MethordModel selectedcalculationMethord;
     MethordModel selectedjuristicMethord;
     MethordModel selectedHigherLatitude;
+    Location initialLocation;
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     setState(() {
       adjestTime[1] = sharedPreferences.getDouble("fajrAdjustment") ?? 0;
@@ -524,7 +532,9 @@ count=0;
       adjestTime[3] = sharedPreferences.getDouble("asrAdjustment") ?? 0;
       adjestTime[4] = sharedPreferences.getDouble("magribAdjustment") ?? 0;
       adjestTime[5] = sharedPreferences.getDouble("ishaAdjustment") ?? 0;
-
+      initialLocation=new Location.current(  sharedPreferences.getInt("altitude"),   sharedPreferences.getString("cityName"), sharedPreferences.getString("countryCode"),
+          sharedPreferences.getDouble("latitude"),  sharedPreferences.getDouble("longitude"),
+          sharedPreferences.getString("timezone"), sharedPreferences.getDouble("utcOffset"));
       selectedCalcMethordPos =
           sharedPreferences.getInt("selectedCalculationMethord") ?? 0;
       selectedAsrJuristicMethordPos =
@@ -559,14 +569,14 @@ count=0;
     // Init location info.
 
     Geocoordinate geo = Geocoordinate((GeocoordinateBuilder b) => b
-      ..latitude = 11.86752
-      ..longitude = 75.35763
-      ..altitude = 13);
-    const double timezone = 5.5;
+      ..latitude = initialLocation.latitude
+      ..longitude = initialLocation.longitude
+      ..altitude = initialLocation.altitude+0.0);
+    double timezone = initialLocation.utcOffset;
 
     // Generate prayer times for one day on April 12th, 2018.
     Prayers prayers = Prayers.on(
-        date: DateTime.now(), settings: settings, coordinate: geo, timeZone: timezone);
+        date: DateTime.now().add(Duration(days: 1)), settings: settings, coordinate: geo, timeZone: timezone);
 
 //    fajr = (prayers.fajr);
 //
@@ -627,6 +637,10 @@ count=0;
         scheduledNotificationDateTime,
         platformChannelSpecifics,payload: "EVNING");
 
+  }
+
+  Future<void> requestPermission() async {
+    PermissionStatus permission = await LocationPermissions().requestPermissions();
   }
 
 
